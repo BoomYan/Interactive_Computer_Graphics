@@ -281,15 +281,28 @@ inline Matrix4 transFact(const Matrix4& m) {
 	// ==========================================
 	// TODO: fill in your own implementation here
 	// ==========================================
+  Matrix4 tempM;
+
+  for (int i = 0; i < 3; i++) {
+    tempM(i,3) = m(i,3);
+  }
+
+  return tempM;
 }
 
 inline Matrix4 linFact(const Matrix4& m) {
 	// ==========================================
 	// TODO: fill in your own implementation here
 	// ==========================================
-	
-	
+	Matrix4 tempM = m;
+
+  for (int i = 0; i < 3; i++) {
+    tempM(i,3) = 0;
+  }
+
+  return tempM;
 }
+
 
 #endif
 

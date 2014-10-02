@@ -12,7 +12,7 @@
 
 #include <vector>
 #include <string>
-#include <memory>-
+#include <memory>
 #include <stdexcept>
 // #if __GNUG__
 // #   include <tr1/memory>
@@ -51,7 +51,7 @@ using namespace std;      // for string, vector, iostream, and other standard C+
 // To complete the assignment you only need to edit the shader files that get
 // loaded
 // ----------------------------------------------------------------------------
-static const bool g_Gl2Compatible = false;
+static const bool g_Gl2Compatible = true;
 
 
 static const float g_frustMinFov = 60.0;  // A minimal of 60 degree field of view
@@ -71,6 +71,10 @@ static int g_activeShader = 0;
 // ========================================
 // TODO: you can add global variables here
 // ========================================
+static int g_currentView = 0;                 // 0 is sky view, 1 is cube1 view, 2 is cube2 view
+static int g_currentManipulatingObject = 0;   // 0 is sky, 1 is cube 1, 2 is cube2 
+static int g_currentSkyView=0;                // 0 is world-sky view, 1 is sky-sky view
+
 
 
 struct ShaderState {
@@ -190,7 +194,7 @@ struct Geometry {
 
 
 // Vertex buffer and index buffer associated with the ground and cube geometry
-static shared_ptr<Geometry> g_ground, g_cube;
+static shared_ptr<Geometry> g_ground, g_cube, g_cube2;
 
 // --------- Scene
 
@@ -201,9 +205,10 @@ static Matrix4 g_skyRbt = Matrix4::makeTranslation(Cvec3(0.0, 0.25, 4.0));
 // 1. transformation
 // 2. color
 // ============================================
-static Matrix4 g_objectRbt[1] = {Matrix4::makeTranslation(Cvec3(0,0,0))};  // currently only 1 obj is defined
-static Cvec3f g_objectColors[1] = {Cvec3f(1, 0, 0)};
+static Matrix4 g_objectRbt[2] = {Matrix4::makeTranslation(Cvec3(-1,0,0)), Matrix4::makeTranslation(Cvec3(1,0,0))}; 
+static Cvec3f g_objectColors[2] = {Cvec3f(1, 0, 0), Cvec3f(0, 0, 1)};
 
+static Matrix4 g_auxFrame = linFact(g_skyRbt);  // g_auxFrame is the auxiliary frame for manipulation
 
 ///////////////// END OF G L O B A L S //////////////////////////////////////////////////
 
@@ -232,6 +237,13 @@ static void initCubes() {
 
   makeCube(1, vtx.begin(), idx.begin());
   g_cube.reset(new Geometry(&vtx[0], &idx[0], vbLen, ibLen));
+  
+  vector<VertexPN> vtx_2(vbLen);
+  vector<unsigned short> idx_2(ibLen);
+
+  makeCube(1, vtx_2.begin(), idx_2.begin());
+  g_cube2.reset(new Geometry(&vtx_2[0], &idx_2[0], vbLen, ibLen));  
+
 }
 
 // takes a projection matrix and send to the the shaders
@@ -275,14 +287,15 @@ static void drawStuff() {
   const Matrix4 projmat = makeProjectionMatrix();
   sendProjectionMatrix(curSS, projmat);
 
-  // use the skyRbt as the eyeRbt
-  const Matrix4 eyeRbt = g_skyRbt;
+  const Matrix4 eyeRbt = (g_currentView == 0) ? g_skyRbt : g_objectRbt[g_currentView - 1];
+  
   const Matrix4 invEyeRbt = inv(eyeRbt);
 
   const Cvec3 eyeLight1 = Cvec3(invEyeRbt * Cvec4(g_light1, 1)); // g_light1 position in eye coordinates
   const Cvec3 eyeLight2 = Cvec3(invEyeRbt * Cvec4(g_light2, 1)); // g_light2 position in eye coordinates
   safe_glUniform3f(curSS.h_uLight, eyeLight1[0], eyeLight1[1], eyeLight1[2]);
   safe_glUniform3f(curSS.h_uLight2, eyeLight2[0], eyeLight2[1], eyeLight2[2]);
+
 
   // draw ground
   // ===========
@@ -301,7 +314,14 @@ static void drawStuff() {
   sendModelViewNormalMatrix(curSS, MVM, NMVM); 
   safe_glUniform3f(curSS.h_uColor, g_objectColors[0][0], g_objectColors[0][1], g_objectColors[0][2]);
   g_cube->draw(curSS);
+
+  MVM = invEyeRbt * g_objectRbt[1];
+  NMVM = normalMatrix(MVM);
+  sendModelViewNormalMatrix(curSS, MVM, NMVM);
+  safe_glUniform3f(curSS.h_uColor, g_objectColors[1][0], g_objectColors[1][1], g_objectColors[1][2]);
+  g_cube2->draw(curSS);
 }
+
 
 static void display() {
   glUseProgram(g_shaderStates[g_activeShader]->program);
@@ -323,11 +343,35 @@ static void reshape(const int w, const int h) {
   glutPostRedisplay();
 }
 
-static void motion(const int x, const int y) {
+
+
+static void motion(const int x, const int y) {    
+   if (g_currentView != 0 && g_currentManipulatingObject == 0) return;
+
   const double dx = x - g_mouseClickX;
   const double dy = g_windowHeight - y - 1 - g_mouseClickY;
+  
+  //set auxFrame for transformation
+  //cout<<"setauxFrame invoked and currentview is "<<g_currentView<<"and current currentManipulatingObject is "<<g_currentManipulatingObject<<endl;
+  if (g_currentManipulatingObject == 0) { 
+      if (g_currentSkyView == 0){
+        g_auxFrame = linFact(g_skyRbt); 
+      }
+      else{
+        g_auxFrame = g_skyRbt;
+      }
+
+  }
+   else {
+    if (g_currentView == 0) {
+      g_auxFrame = transFact(g_objectRbt[g_currentManipulatingObject - 1]) * linFact(g_skyRbt);
+    } else {
+      g_auxFrame = transFact(g_objectRbt[g_currentManipulatingObject - 1]) * linFact(g_objectRbt[g_currentView - 1]);
+    }
+  }
 
   Matrix4 m;
+
   if (g_mouseLClickButton && !g_mouseRClickButton) { // left button down?
     m = Matrix4::makeXRotation(-dy) * Matrix4::makeYRotation(dx);
   }
@@ -337,11 +381,19 @@ static void motion(const int x, const int y) {
   else if (g_mouseMClickButton || (g_mouseLClickButton && g_mouseRClickButton)) {  // middle or (left and right) button down?
     m = Matrix4::makeTranslation(Cvec3(0, 0, -dy) * 0.01);
   }
+  
+  m = g_auxFrame * m * inv(g_auxFrame);
+
 
   if (g_mouseClickDown) {
-    g_objectRbt[0] *= m; // Simply right-multiply is WRONG
+    if (g_currentManipulatingObject == 0) {
+      g_skyRbt = m * g_skyRbt;
+    } else {
+      g_objectRbt[g_currentManipulatingObject - 1] = m * g_objectRbt[g_currentManipulatingObject - 1];
+    }
     glutPostRedisplay(); // we always redraw if we changed the scene
   }
+
 
   g_mouseClickX = x;
   g_mouseClickY = g_windowHeight - y - 1;
@@ -355,7 +407,14 @@ static void reset()
 	// - reset the views and manipulation mode to default
 	// - reset sky camera mode to use the "world-sky" frame
 	// =========================================================
-	cout << "reset objects and modes to defaults" << endl;
+  g_skyRbt = Matrix4::makeTranslation(Cvec3(0.0, 0.25, 4.0));
+  g_objectRbt[0] = Matrix4::makeTranslation(Cvec3(-1,0,0)); 
+  g_objectRbt[1] = Matrix4::makeTranslation(Cvec3(1,0,0)); 
+  g_currentView = 0;
+  g_currentManipulatingObject = 0;
+  g_currentSkyView = 0;
+
+	cout << "reset all to defaults" << endl;
 }
 
 static void mouse(const int button, const int state, const int x, const int y) {
@@ -373,6 +432,44 @@ static void mouse(const int button, const int state, const int x, const int y) {
   g_mouseClickDown = g_mouseLClickButton || g_mouseRClickButton || g_mouseMClickButton;
 }
 
+//set the sky view whether world-sky or sky-sky
+static void setCurrentSkyView() {
+  if (g_currentManipulatingObject == 0 && g_currentView == 0) {
+    g_currentSkyView++;
+    if(g_currentSkyView==2)g_currentSkyView=0;
+    if (g_currentSkyView == 0) {
+      cout << "set to world-sky view" << endl;
+    } else {
+      cout << "set to sky-sky view" << endl;
+    }
+  } else {
+    cout << "use sky view to enable this function" << endl;
+  }
+}
+
+//set the current view
+static void setCurrentView() {
+  g_currentView++;
+  if (g_currentView == 3) g_currentView=0;
+  if (g_currentView == 0) {
+    cout << "Current view is sky view" << endl;
+  } else {
+    cout << "Current view is cube" << g_currentView << " view" << endl;
+  }
+}
+
+//set the current manipulating object
+static void setCurrentManipulatingObject(){
+  g_currentManipulatingObject++;
+  if (g_currentManipulatingObject == 3) g_currentManipulatingObject=0;
+  if (g_currentManipulatingObject == 0) {
+    cout << "Current manipulating object is sky" << endl;
+  } else {
+    cout << "Current manipulating object is cube" << g_currentManipulatingObject << endl;
+  }
+}
+
+
 
 static void keyboard(const unsigned char key, const int x, const int y) {
   switch (key) {
@@ -385,6 +482,7 @@ static void keyboard(const unsigned char key, const int x, const int y) {
     << "f\t\tToggle flat shading on/off.\n"
     << "o\t\tCycle object to edit\n"
     << "v\t\tCycle view\n"
+    << "v\t\tCycle view\n"
     << "drag left mouse to rotate\n" << endl;
     break;
   case 's':
@@ -394,6 +492,20 @@ static void keyboard(const unsigned char key, const int x, const int y) {
   case 'f':
     g_activeShader ^= 1;
     break;
+  case 'v':
+    setCurrentView();
+    break;
+  case 'o':
+    setCurrentManipulatingObject();
+    break;
+  case 'm':
+    setCurrentSkyView();
+  break;
+  case 'r':
+    reset();
+  break;
+
+
   // ============================================================
   // TODO: add the following functionality for 
   //       keybaord inputs
@@ -405,6 +517,7 @@ static void keyboard(const unsigned char key, const int x, const int y) {
   }
   glutPostRedisplay();
 }
+
 
 static void initGlutState(int argc, char * argv[]) {
   glutInit(&argc, argv);                                  // initialize Glut based on cmd-line args
