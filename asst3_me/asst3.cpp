@@ -30,6 +30,9 @@
 #include "geometrymaker.h"
 #include "ppm.h"
 #include "glsupport.h"
+#include "arcball.h"
+#include "quat.h"
+#include "rigtform.h"
 
 using namespace std;      // for string, vector, iostream, and other standard C++ stuff
 // using namespace tr1; // for shared_ptr
@@ -172,15 +175,22 @@ struct Geometry {
 
   void draw(const ShaderState& curSS) {
     // Enable the attributes used by our shader
+
     safe_glEnableVertexAttribArray(curSS.h_aPosition);
     safe_glEnableVertexAttribArray(curSS.h_aNormal);
 
+        cout<<"here 4  --------------------------------------------"<<endl;
+
     // bind vbo
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        cout<<"here 5  --------------------------------------------"<<endl;
     safe_glVertexAttribPointer(curSS.h_aPosition, 3, GL_FLOAT, GL_FALSE, sizeof(VertexPN), FIELD_OFFSET(VertexPN, p));
+
+
+            cout<<"here 6  --------------------------------------------"<<endl;
     safe_glVertexAttribPointer(curSS.h_aNormal, 3, GL_FLOAT, GL_FALSE, sizeof(VertexPN), FIELD_OFFSET(VertexPN, n));
 
-    // bind ibo
+        // bind ibo
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
 
     // draw!
@@ -189,26 +199,31 @@ struct Geometry {
     // Disable the attributes used by our shader
     safe_glDisableVertexAttribArray(curSS.h_aPosition);
     safe_glDisableVertexAttribArray(curSS.h_aNormal);
+
   }
 };
 
 
 // Vertex buffer and index buffer associated with the ground and cube geometry
-static shared_ptr<Geometry> g_ground, g_cube, g_cube2;
+static shared_ptr<Geometry> g_ground, g_cube, g_cube2, g_sphere;
 
 // --------- Scene
 
 static const Cvec3 g_light1(2.0, 3.0, 14.0), g_light2(-2, -3.0, -5.0);  // define two lights positions in world space
-static Matrix4 g_skyRbt = Matrix4::makeTranslation(Cvec3(0.0, 0.25, 4.0));
+static RigTForm g_skyRbt = RigTForm(Cvec3(0.0, 0.25, 4.0));
 // ============================================
 // TODO: add a second cube's 
 // 1. transformation
 // 2. color
 // ============================================
-static Matrix4 g_objectRbt[2] = {Matrix4::makeTranslation(Cvec3(-1,0,0)), Matrix4::makeTranslation(Cvec3(1,0,0))}; 
+static RigTForm g_objectRbt[2] = {RigTForm(Cvec3(-1,0,0)), RigTForm(Cvec3(1,0,0))}; 
 static Cvec3f g_objectColors[2] = {Cvec3f(1, 0, 0), Cvec3f(0, 0, 1)};
 
-static Matrix4 g_auxFrame = linFact(g_skyRbt);  // g_auxFrame is the auxiliary frame for manipulation
+static const Cvec3f g_arcballColor = Cvec3f(0, 0.47, 1);
+static double g_arcballScreenRadius = 1.0;
+static double g_arcballScale = 1.0;
+
+static RigTForm g_auxFrame = linFact(g_skyRbt);  // g_auxFrame is the auxiliary frame for manipulation
 
 ///////////////// END OF G L O B A L S //////////////////////////////////////////////////
 
@@ -246,6 +261,35 @@ static void initCubes() {
 
 }
 
+static void initSpheres(){          //?????????
+  const int slices = 25;
+  const int stacks = 25;
+
+  int ibLen, vbLen;
+  getSphereVbIbLen(slices,stacks, vbLen, ibLen);
+
+  vector<VertexPN> vtx(vbLen);
+  vector<unsigned short> idx(ibLen);
+
+  makeSphere(1, slices, stacks, vtx.begin(), idx.begin());
+  g_sphere.reset(new Geometry(&vtx[0],&idx[0],vbLen,ibLen));
+
+}
+//????????
+static bool nonEgoCubeManipulation() {
+  return g_currentManipulatingObject != 0 && g_currentView != g_currentManipulatingObject;
+}
+
+static bool useArcball() {
+  return (g_currentManipulatingObject == 0 && g_currentSkyView == 0) || nonEgoCubeManipulation();
+}
+
+
+static bool worldSkyManipulation() {
+  return g_currentManipulatingObject == 0 && g_currentView == 0 && g_currentSkyView == 0;
+}
+
+
 // takes a projection matrix and send to the the shaders
 static void sendProjectionMatrix(const ShaderState& curSS, const Matrix4& projMatrix) {
   GLfloat glmatrix[16];
@@ -280,6 +324,7 @@ static Matrix4 makeProjectionMatrix() {
 }
 
 static void drawStuff() {
+
   // short hand for current shader state
   const ShaderState& curSS = *g_shaderStates[g_activeShader];
 
@@ -287,9 +332,9 @@ static void drawStuff() {
   const Matrix4 projmat = makeProjectionMatrix();
   sendProjectionMatrix(curSS, projmat);
 
-  const Matrix4 eyeRbt = (g_currentView == 0) ? g_skyRbt : g_objectRbt[g_currentView - 1];
+  const RigTForm eyeRbt = (g_currentView == 0) ? g_skyRbt : g_objectRbt[g_currentView - 1];
   
-  const Matrix4 invEyeRbt = inv(eyeRbt);
+  const RigTForm invEyeRbt = inv(eyeRbt);
 
   const Cvec3 eyeLight1 = Cvec3(invEyeRbt * Cvec4(g_light1, 1)); // g_light1 position in eye coordinates
   const Cvec3 eyeLight2 = Cvec3(invEyeRbt * Cvec4(g_light2, 1)); // g_light2 position in eye coordinates
@@ -300,8 +345,8 @@ static void drawStuff() {
   // draw ground
   // ===========
   //
-  const Matrix4 groundRbt = Matrix4();  // identity
-  Matrix4 MVM = invEyeRbt * groundRbt;
+  const RigTForm groundRbt = RigTForm();  // identity
+  Matrix4 MVM = rigTFormToMatrix(invEyeRbt * groundRbt);
   Matrix4 NMVM = normalMatrix(MVM);
   sendModelViewNormalMatrix(curSS, MVM, NMVM);
   safe_glUniform3f(curSS.h_uColor, 0.1, 0.95, 0.1); // set color
@@ -309,17 +354,56 @@ static void drawStuff() {
 
   // draw cubes
   // ==========
-  MVM = invEyeRbt * g_objectRbt[0];                     //!!model view matrix
+  MVM = rigTFormToMatrix(invEyeRbt * g_objectRbt[0]);                     //!!model view matrix
   NMVM = normalMatrix(MVM);                                       //!!normal ~
   sendModelViewNormalMatrix(curSS, MVM, NMVM); 
   safe_glUniform3f(curSS.h_uColor, g_objectColors[0][0], g_objectColors[0][1], g_objectColors[0][2]);
   g_cube->draw(curSS);
 
-  MVM = invEyeRbt * g_objectRbt[1];
+  MVM = rigTFormToMatrix(invEyeRbt * g_objectRbt[1]);
   NMVM = normalMatrix(MVM);
   sendModelViewNormalMatrix(curSS, MVM, NMVM);
   safe_glUniform3f(curSS.h_uColor, g_objectColors[1][0], g_objectColors[1][1], g_objectColors[1][2]);
   g_cube2->draw(curSS);
+
+
+  RigTForm sphere;            //???????
+
+  if (g_currentManipulatingObject == 0) {
+    if (g_currentSkyView == 0) {
+      sphere = inv(RigTForm());
+    } else {
+      sphere = eyeRbt;
+    }
+  } else {
+    sphere = g_objectRbt[g_currentManipulatingObject - 1];
+  }
+        
+          
+  if (!g_mouseMClickButton && !(g_mouseLClickButton && g_mouseRClickButton) && useArcball()) {
+    g_arcballScale = getScreenToEyeScale(
+      (inv(eyeRbt) * sphere).getTranslation()[2],
+      g_frustFovY,
+      g_windowHeight
+    );
+  }
+
+  /* draw wireframes */
+  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+  const Matrix4 scale = Matrix4::makeScale(g_arcballScale * g_arcballScreenRadius);
+  MVM = rigTFormToMatrix(invEyeRbt * sphere) * scale;
+  NMVM = normalMatrix(MVM);
+  sendModelViewNormalMatrix(curSS, MVM, NMVM);
+cout<<"here 1  --------------------------------------------"<<endl;
+  safe_glUniform3f(curSS.h_uColor, g_arcballColor[0], g_arcballColor[1], g_arcballColor[2]);
+cout<<"here 2  --------------------------------------------"<<endl;
+  g_sphere->draw(curSS);
+
+cout<<"here 3  --------------------------------------------"<<endl;
+  /* draw filled */
+  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // draw filled again
+
 }
 
 
@@ -343,14 +427,61 @@ static void reshape(const int w, const int h) {
   glutPostRedisplay();
 }
 
+static RigTForm getArcballRotation(const int x, const int y){
+  // TTTTTTTo do
+  const RigTForm eyeRbt = (g_currentView == 0) ? g_skyRbt : g_objectRbt[g_currentView - 1];
+  const RigTForm object = (g_currentManipulatingObject == 0) ? g_skyRbt : g_objectRbt[g_currentManipulatingObject- 1];
 
+  const bool world_sky_manipulation = worldSkyManipulation();
+
+  Cvec2 sphereOnScreenCoords;
+  if (world_sky_manipulation) {
+    sphereOnScreenCoords = Cvec2((g_windowWidth - 1) / 2.0, (g_windowHeight - 1) / 2.0);
+  } else {
+    sphereOnScreenCoords = getScreenSpaceCoord(
+      (inv(eyeRbt) * object).getTranslation(),
+      makeProjectionMatrix(),
+      g_frustNear,
+      g_frustFovY,
+      g_windowWidth,
+      g_windowHeight
+    );
+  }
+  
+  const Cvec3 sphere_center = Cvec3(sphereOnScreenCoords, 0);
+  const Cvec3 p1 = Cvec3(g_mouseClickX, g_mouseClickY, 0) - sphere_center;
+  const Cvec3 p2 = Cvec3(x, y, 0) - sphere_center;
+
+  const Cvec3 v1 = normalize(Cvec3(p1[0], p1[1],
+    sqrt(max(0.0, pow(g_arcballScreenRadius, 2) - pow(p1[0], 2) - pow(p1[1], 2)))));
+  const Cvec3 v2 = normalize(Cvec3(p2[0], p2[1],
+    sqrt(max(0.0, pow(g_arcballScreenRadius, 2) - pow(p2[0], 2) - pow(p2[1], 2)))));
+
+  if (world_sky_manipulation) {
+    return RigTForm(Quat(0, v1 * -1.0) * Quat(0, v2));
+  } else {
+    return RigTForm(Quat(0, v2) * Quat(0, v1 * -1.0));
+  }
+}
 
 static void motion(const int x, const int y) {    
+
    if (g_currentView != 0 && g_currentManipulatingObject == 0) return;
 
+   // TTTTTTodo
   const double dx = x - g_mouseClickX;
   const double dy = g_windowHeight - y - 1 - g_mouseClickY;
+
+  const bool use_arcball = useArcball();      //???????
   
+  double translateFactor;
+
+  if (use_arcball) {
+    translateFactor = g_arcballScale;
+  } else {
+    translateFactor = 0.01;
+  }
+
   //set auxFrame for transformation
   //cout<<"setauxFrame invoked and currentview is "<<g_currentView<<"and current currentManipulatingObject is "<<g_currentManipulatingObject<<endl;
   if (g_currentManipulatingObject == 0) { 
@@ -370,22 +501,25 @@ static void motion(const int x, const int y) {
     }
   }
 
-  Matrix4 m;
+  RigTForm m;
 
   if (g_mouseLClickButton && !g_mouseRClickButton) { // left button down?
-    m = Matrix4::makeXRotation(-dy) * Matrix4::makeYRotation(dx);
+    if (use_arcball)
+      m=getArcballRotation(dx,dy);
+    else
+      m=RigTForm(Quat::makeXRotation(-dy)*Quat::makeYRotation(dx));
   }
   else if (g_mouseRClickButton && !g_mouseLClickButton) { // right button down?
-    m = Matrix4::makeTranslation(Cvec3(dx, dy, 0) * 0.01);
+    m = RigTForm(Cvec3(dx, dy, 0) * translateFactor);
   }
   else if (g_mouseMClickButton || (g_mouseLClickButton && g_mouseRClickButton)) {  // middle or (left and right) button down?
-    m = Matrix4::makeTranslation(Cvec3(0, 0, -dy) * 0.01);
+    m = RigTForm(Cvec3(0, 0, -dy) * translateFactor);
   }
   
   m = g_auxFrame * m * inv(g_auxFrame);
 
-
   if (g_mouseClickDown) {
+
     if (g_currentManipulatingObject == 0) {
       g_skyRbt = m * g_skyRbt;
     } else {
@@ -407,12 +541,12 @@ static void reset()
 	// - reset the views and manipulation mode to default
 	// - reset sky camera mode to use the "world-sky" frame
 	// =========================================================
-  g_skyRbt = Matrix4::makeTranslation(Cvec3(0.0, 0.25, 4.0));
-  g_objectRbt[0] = Matrix4::makeTranslation(Cvec3(-1,0,0)); 
-  g_objectRbt[1] = Matrix4::makeTranslation(Cvec3(1,0,0)); 
-  g_currentView = 0;
-  g_currentManipulatingObject = 0;
-  g_currentSkyView = 0;
+  // g_skyRbt = Matrix4::makeTranslation(Cvec3(0.0, 0.25, 4.0));
+  // g_objectRbt[0] = Matrix4::makeTranslation(Cvec3(-1,0,0)); 
+  // g_objectRbt[1] = Matrix4::makeTranslation(Cvec3(1,0,0)); 
+  // g_currentView = 0;
+  // g_currentManipulatingObject = 0;
+  // g_currentSkyView = 0;
 
 	cout << "reset all to defaults" << endl;
 }
@@ -562,7 +696,9 @@ static void initGeometry() {
 }
 
 int main(int argc, char * argv[]) {
+
   try {
+
     initGlutState(argc,argv);
 
     glewInit(); // load the OpenGL extensions
@@ -576,8 +712,8 @@ int main(int argc, char * argv[]) {
     initGLState();
     initShaders();
     initGeometry();
-
     glutMainLoop();
+
     return 0;
   }
   catch (const runtime_error& e) {

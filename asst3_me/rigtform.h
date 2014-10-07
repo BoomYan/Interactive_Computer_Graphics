@@ -48,7 +48,8 @@ public:
     // ======
 	// TODO:
 	// ======
-    return RigTForm(t_ + Cvec3(r_))
+    return RigTForm(t_ + Cvec3(r_ * Cvec4(a.getTranslation(), 0)), r_ * a.getRotation()
+    );
   }
 };
 
@@ -73,7 +74,7 @@ inline Matrix4 rigTFormToMatrix(const RigTForm& tform) {
 	// TODO:
 	// ======
   Matrix4 t = Matrix4::makeTranslation(tform.getTranslation());
-  Matrix4 r = quatToMatrix(tform.getRotation);
+  Matrix4 r = quatToMatrix(tform.getRotation());
     return t * r;
 }
 

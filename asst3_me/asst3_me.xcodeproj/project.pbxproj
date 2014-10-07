@@ -1,0 +1,176 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXFileReference section */
+		2CD058CA19E446E40088C802 /* .DS_Store */ = {isa = PBXFileReference; lastKnownFileType = file; path = .DS_Store; sourceTree = "<group>"; };
+		2CD058CB19E446E40088C802 /* arcball.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = arcball.h; sourceTree = "<group>"; };
+		2CD058CC19E446E40088C802 /* asst3 */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = asst3; sourceTree = "<group>"; };
+		2CD058CD19E446E40088C802 /* asst3.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = asst3.cpp; sourceTree = "<group>"; };
+		2CD058CE19E446E40088C802 /* asst3.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = asst3.o; sourceTree = "<group>"; };
+		2CD058CF19E446E40088C802 /* AUTHORS */ = {isa = PBXFileReference; lastKnownFileType = text; path = AUTHORS; sourceTree = "<group>"; };
+		2CD058D019E446E40088C802 /* cvec.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = cvec.h; sourceTree = "<group>"; };
+		2CD058D119E446E40088C802 /* geometrymaker.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = geometrymaker.h; sourceTree = "<group>"; };
+		2CD058D219E446E40088C802 /* glsupport.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = glsupport.cpp; sourceTree = "<group>"; };
+		2CD058D319E446E40088C802 /* glsupport.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = glsupport.h; sourceTree = "<group>"; };
+		2CD058D419E446E40088C802 /* glsupport.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = glsupport.o; sourceTree = "<group>"; };
+		2CD058D519E446E40088C802 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
+		2CD058D619E446E40088C802 /* Makefile */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		2CD058D719E446E40088C802 /* matrix4.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = matrix4.h; sourceTree = "<group>"; };
+		2CD058D819E446E40088C802 /* ppm.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ppm.cpp; sourceTree = "<group>"; };
+		2CD058D919E446E40088C802 /* ppm.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ppm.h; sourceTree = "<group>"; };
+		2CD058DA19E446E40088C802 /* ppm.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = ppm.o; sourceTree = "<group>"; };
+		2CD058DB19E446E40088C802 /* quat.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = quat.h; sourceTree = "<group>"; };
+		2CD058DC19E446E40088C802 /* README.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = README.txt; sourceTree = "<group>"; };
+		2CD058DD19E446E40088C802 /* rigtform.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = rigtform.h; sourceTree = "<group>"; };
+		2CD058DE19E446E40088C802 /* shaders */ = {isa = PBXFileReference; lastKnownFileType = folder; path = shaders; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		2CD058C419E446E40088C802 = {
+			isa = PBXGroup;
+			children = (
+				2CD058CA19E446E40088C802 /* .DS_Store */,
+				2CD058CB19E446E40088C802 /* arcball.h */,
+				2CD058CC19E446E40088C802 /* asst3 */,
+				2CD058CD19E446E40088C802 /* asst3.cpp */,
+				2CD058CE19E446E40088C802 /* asst3.o */,
+				2CD058CF19E446E40088C802 /* AUTHORS */,
+				2CD058D019E446E40088C802 /* cvec.h */,
+				2CD058D119E446E40088C802 /* geometrymaker.h */,
+				2CD058D219E446E40088C802 /* glsupport.cpp */,
+				2CD058D319E446E40088C802 /* glsupport.h */,
+				2CD058D419E446E40088C802 /* glsupport.o */,
+				2CD058D519E446E40088C802 /* LICENSE */,
+				2CD058D619E446E40088C802 /* Makefile */,
+				2CD058D719E446E40088C802 /* matrix4.h */,
+				2CD058D819E446E40088C802 /* ppm.cpp */,
+				2CD058D919E446E40088C802 /* ppm.h */,
+				2CD058DA19E446E40088C802 /* ppm.o */,
+				2CD058DB19E446E40088C802 /* quat.h */,
+				2CD058DC19E446E40088C802 /* README.txt */,
+				2CD058DD19E446E40088C802 /* rigtform.h */,
+				2CD058DE19E446E40088C802 /* shaders */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXLegacyTarget section */
+		2CD058C919E446E40088C802 /* asst3_me */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "$(ACTION)";
+			buildConfigurationList = 2CD058DF19E446E40088C802 /* Build configuration list for PBXLegacyTarget "asst3_me" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/make;
+			buildWorkingDirectory = /Users/YAN/GitHub/Interactive_Computer_Graphics/asst3_me;
+			dependencies = (
+			);
+			name = asst3_me;
+			passBuildSettingsInEnvironment = 1;
+			productName = asst3_me;
+		};
+/* End PBXLegacyTarget section */
+
+/* Begin PBXProject section */
+		2CD058C519E446E40088C802 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+			};
+			buildConfigurationList = 2CD058C819E446E40088C802 /* Build configuration list for PBXProject "asst3_me" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 2CD058C419E446E40088C802;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				2CD058C919E446E40088C802 /* asst3_me */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin XCBuildConfiguration section */
+		2CD058C619E446E40088C802 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				COPY_PHASE_STRIP = NO;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx10.6;
+			};
+			name = Debug;
+		};
+		2CD058C719E446E40088C802 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				COPY_PHASE_STRIP = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				SDKROOT = macosx10.6;
+			};
+			name = Release;
+		};
+		2CD058E019E446E40088C802 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEBUGGING_SYMBOLS = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = asst3_me;
+			};
+			name = Debug;
+		};
+		2CD058E119E446E40088C802 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = asst3_me;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		2CD058C819E446E40088C802 /* Build configuration list for PBXProject "asst3_me" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2CD058C619E446E40088C802 /* Debug */,
+				2CD058C719E446E40088C802 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2CD058DF19E446E40088C802 /* Build configuration list for PBXLegacyTarget "asst3_me" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2CD058E019E446E40088C802 /* Debug */,
+				2CD058E119E446E40088C802 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 2CD058C519E446E40088C802 /* Project object */;
+}
