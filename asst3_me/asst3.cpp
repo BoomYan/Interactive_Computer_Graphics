@@ -179,15 +179,10 @@ struct Geometry {
     safe_glEnableVertexAttribArray(curSS.h_aPosition);
     safe_glEnableVertexAttribArray(curSS.h_aNormal);
 
-        cout<<"here 4  --------------------------------------------"<<endl;
-
     // bind vbo
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        cout<<"here 5  --------------------------------------------"<<endl;
     safe_glVertexAttribPointer(curSS.h_aPosition, 3, GL_FLOAT, GL_FALSE, sizeof(VertexPN), FIELD_OFFSET(VertexPN, p));
 
-
-            cout<<"here 6  --------------------------------------------"<<endl;
     safe_glVertexAttribPointer(curSS.h_aNormal, 3, GL_FLOAT, GL_FALSE, sizeof(VertexPN), FIELD_OFFSET(VertexPN, n));
 
         // bind ibo
@@ -261,21 +256,21 @@ static void initCubes() {
 
 }
 
-static void initSpheres(){          //?????????
+static void initSpheres() {  
   const int slices = 25;
   const int stacks = 25;
 
   int ibLen, vbLen;
-  getSphereVbIbLen(slices,stacks, vbLen, ibLen);
+  getSphereVbIbLen(slices, stacks, vbLen, ibLen);
 
+  /* Temporary storage for sphere geometry */
   vector<VertexPN> vtx(vbLen);
   vector<unsigned short> idx(ibLen);
 
   makeSphere(1, slices, stacks, vtx.begin(), idx.begin());
-  g_sphere.reset(new Geometry(&vtx[0],&idx[0],vbLen,ibLen));
-
+  g_sphere.reset(new Geometry(&vtx[0], &idx[0], vbLen, ibLen));
 }
-//????????
+
 static bool nonEgoCubeManipulation() {
   return g_currentManipulatingObject != 0 && g_currentView != g_currentManipulatingObject;
 }
@@ -323,8 +318,29 @@ static Matrix4 makeProjectionMatrix() {
            g_frustNear, g_frustFar);
 }
 
-static void drawStuff() {
+//set auxFrame for transformation
+static void setAFrame(){
+   if (g_currentManipulatingObject == 0) { 
+      if (g_currentSkyView == 0){
+        g_auxFrame = linFact(g_skyRbt); 
+      }
+      else{
+        g_auxFrame = g_skyRbt;
+      }
 
+  }
+   else {
+    if (g_currentView == 0) {
+      g_auxFrame = transFact(g_objectRbt[g_currentManipulatingObject - 1]) * linFact(g_skyRbt);
+    } else {
+      g_auxFrame = transFact(g_objectRbt[g_currentManipulatingObject - 1]) * linFact(g_objectRbt[g_currentView - 1]);
+    }
+  }
+
+}
+
+static void drawStuff() {
+  setAFrame();
   // short hand for current shader state
   const ShaderState& curSS = *g_shaderStates[g_activeShader];
 
@@ -367,7 +383,7 @@ static void drawStuff() {
   g_cube2->draw(curSS);
 
 
-  RigTForm sphere;            //???????
+  RigTForm sphere;    
 
   if (g_currentManipulatingObject == 0) {
     if (g_currentSkyView == 0) {
@@ -381,11 +397,7 @@ static void drawStuff() {
         
           
   if (!g_mouseMClickButton && !(g_mouseLClickButton && g_mouseRClickButton) && useArcball()) {
-    g_arcballScale = getScreenToEyeScale(
-      (inv(eyeRbt) * sphere).getTranslation()[2],
-      g_frustFovY,
-      g_windowHeight
-    );
+    g_arcballScale = getScreenToEyeScale((inv(eyeRbt) * sphere).getTranslation()[2], g_frustFovY, g_windowHeight);
   }
 
   /* draw wireframes */
@@ -395,12 +407,8 @@ static void drawStuff() {
   MVM = rigTFormToMatrix(invEyeRbt * sphere) * scale;
   NMVM = normalMatrix(MVM);
   sendModelViewNormalMatrix(curSS, MVM, NMVM);
-cout<<"here 1  --------------------------------------------"<<endl;
   safe_glUniform3f(curSS.h_uColor, g_arcballColor[0], g_arcballColor[1], g_arcballColor[2]);
-cout<<"here 2  --------------------------------------------"<<endl;
   g_sphere->draw(curSS);
-
-cout<<"here 3  --------------------------------------------"<<endl;
   /* draw filled */
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // draw filled again
 
@@ -423,14 +431,16 @@ static void reshape(const int w, const int h) {
   g_windowHeight = h;
   glViewport(0, 0, w, h);
   cerr << "Size of window is now " << w << "x" << h << endl;
+
+  g_arcballScreenRadius = 0.3 * min(g_windowWidth, g_windowHeight);
+
   updateFrustFovY();
   glutPostRedisplay();
 }
 
-static RigTForm getArcballRotation(const int x, const int y){
-  // TTTTTTTo do
+static RigTForm getArcballRotation(const int x, const int y) {
   const RigTForm eyeRbt = (g_currentView == 0) ? g_skyRbt : g_objectRbt[g_currentView - 1];
-  const RigTForm object = (g_currentManipulatingObject == 0) ? g_skyRbt : g_objectRbt[g_currentManipulatingObject- 1];
+  const RigTForm object = (g_currentManipulatingObject == 0) ? g_skyRbt : g_objectRbt[g_currentManipulatingObject - 1];
 
   const bool world_sky_manipulation = worldSkyManipulation();
 
@@ -464,56 +474,52 @@ static RigTForm getArcballRotation(const int x, const int y){
   }
 }
 
-static void motion(const int x, const int y) {    
 
+static void motion(const int x, const int y) {    
    if (g_currentView != 0 && g_currentManipulatingObject == 0) return;
 
-   // TTTTTTodo
-  const double dx = x - g_mouseClickX;
-  const double dy = g_windowHeight - y - 1 - g_mouseClickY;
+  const double curr_x = x;
+  const double curr_y = g_windowHeight - y - 1;
+  const double raw_dx = curr_x - g_mouseClickX;
+  const double raw_dy = curr_y - g_mouseClickY;
 
-  const bool use_arcball = useArcball();      //???????
+  double dx_t, dx_r, dy_t, dy_r;
+  if (nonEgoCubeManipulation()) {
+    dx_t = raw_dx; dx_r = raw_dx;
+    dy_t = raw_dy; dy_r = raw_dy;
+  } else if (worldSkyManipulation()) {
+    dx_t = -raw_dx; dx_r = -raw_dx;
+    dy_t = -raw_dy; dy_r = -raw_dy;
+  } else {
+    dx_t = raw_dx; dx_r = -raw_dx;
+    dy_t = raw_dy; dy_r = -raw_dy;
+  }
+
+
+  const bool use_arcball = useArcball();  
   
   double translateFactor;
-
   if (use_arcball) {
     translateFactor = g_arcballScale;
   } else {
     translateFactor = 0.01;
   }
 
-  //set auxFrame for transformation
-  //cout<<"setauxFrame invoked and currentview is "<<g_currentView<<"and current currentManipulatingObject is "<<g_currentManipulatingObject<<endl;
-  if (g_currentManipulatingObject == 0) { 
-      if (g_currentSkyView == 0){
-        g_auxFrame = linFact(g_skyRbt); 
-      }
-      else{
-        g_auxFrame = g_skyRbt;
-      }
-
-  }
-   else {
-    if (g_currentView == 0) {
-      g_auxFrame = transFact(g_objectRbt[g_currentManipulatingObject - 1]) * linFact(g_skyRbt);
-    } else {
-      g_auxFrame = transFact(g_objectRbt[g_currentManipulatingObject - 1]) * linFact(g_objectRbt[g_currentView - 1]);
-    }
-  }
+  setAFrame();
 
   RigTForm m;
 
   if (g_mouseLClickButton && !g_mouseRClickButton) { // left button down?
     if (use_arcball)
-      m=getArcballRotation(dx,dy);
+      m = getArcballRotation(curr_x, curr_y);
     else
-      m=RigTForm(Quat::makeXRotation(-dy)*Quat::makeYRotation(dx));
+      m = RigTForm(Quat::makeXRotation(-dy_r) * Quat::makeYRotation(dx_r));
   }
   else if (g_mouseRClickButton && !g_mouseLClickButton) { // right button down?
-    m = RigTForm(Cvec3(dx, dy, 0) * translateFactor);
+    m = RigTForm(Cvec3(dx_t, dy_t, 0) * translateFactor);
   }
   else if (g_mouseMClickButton || (g_mouseLClickButton && g_mouseRClickButton)) {  // middle or (left and right) button down?
-    m = RigTForm(Cvec3(0, 0, -dy) * translateFactor);
+    m = RigTForm(Cvec3(0, 0, -dy_t) * translateFactor);
   }
   
   m = g_auxFrame * m * inv(g_auxFrame);
@@ -529,8 +535,9 @@ static void motion(const int x, const int y) {
   }
 
 
-  g_mouseClickX = x;
-  g_mouseClickY = g_windowHeight - y - 1;
+  g_mouseClickX = curr_x;
+  g_mouseClickY = curr_y;
+
 }
 
 static void reset()
@@ -657,7 +664,7 @@ static void initGlutState(int argc, char * argv[]) {
   glutInit(&argc, argv);                                  // initialize Glut based on cmd-line args
   glutInitDisplayMode(GLUT_RGBA|GLUT_DOUBLE|GLUT_DEPTH);  //  RGBA pixel channels and double buffering
   glutInitWindowSize(g_windowWidth, g_windowHeight);      // create a window
-  glutCreateWindow("Assignment 2");                       // title the window
+  glutCreateWindow("Assignment 3");                       // title the window
 
   glutDisplayFunc(display);                               // display rendering callback
   glutReshapeFunc(reshape);                               // window reshape callback
@@ -693,6 +700,7 @@ static void initShaders() {
 static void initGeometry() {
   initGround();
   initCubes();
+  initSpheres();
 }
 
 int main(int argc, char * argv[]) {

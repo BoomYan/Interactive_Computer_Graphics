@@ -16,11 +16,11 @@ public:
     assert(norm2(Quat(1,0,0,0) - r_) < CS175_EPS2);
   }
 
-  RigTForm(const Cvec3& t, const Quat& r) : t_(t), r_(r) {}       //???????
+  RigTForm(const Cvec3& t, const Quat& r) : t_(t), r_(r) {}      
 
-  explicit RigTForm(const Cvec3& t) : t_(t), r_() {}  //???????
+  explicit RigTForm(const Cvec3& t) : t_(t), r_() {}
 
-  explicit RigTForm(const Quat& r) : t_(0), r_(r) {}  //??????
+  explicit RigTForm(const Quat& r) : t_(0), r_(r) {} 
 
   Cvec3 getTranslation() const {
     return t_;
@@ -40,8 +40,8 @@ public:
     return *this;
   }
 
-  Cvec4 operator * (const Cvec4& a) const {       //???????Cvc4&????
-    return r_ * a +Cvec4(t_,0) * a[3];          //?????????
+  Cvec4 operator * (const Cvec4& a) const {   
+    return r_ * a +Cvec4(t_,0) * a[3];    
   }
 
   RigTForm operator * (const RigTForm& a) const {
