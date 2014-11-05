@@ -237,9 +237,10 @@ static RigTForm g_auxFrame;  // g_auxFrame is the auxiliary frame for manipulati
 
 static void setPicking();
 
-
 static void initGround() {
-  // A x-z plane at y = g_groundY of dimension [-g_groundSize, g_groundSize]^2
+  /**
+   * An x-z plane at y = g_groundY of dimension [-g_groundSize, g_groundSize]^2
+   */
   VertexPN vtx[4] = {
     VertexPN(-g_groundSize, g_groundY, -g_groundSize, 0, 1, 0),
     VertexPN(-g_groundSize, g_groundY,  g_groundSize, 0, 1, 0),
@@ -260,10 +261,9 @@ static void initCubes() {
 
   makeCube(1, vtx.begin(), idx.begin());
   g_cube.reset(new Geometry(&vtx[0], &idx[0], vbLen, ibLen));
-
 }
 
-static void initSpheres() {  
+static void initSpheres() {
   const int slices = 25;
   const int stacks = 25;
 
@@ -326,15 +326,14 @@ static Matrix4 makeProjectionMatrix() {
 
 //set auxFrame for transformation
 static void setAFrame(){
-                    cout << "hahh..................setAFrame invoked..........................." <<endl;
+
  if (g_currentPickedRbtNode == g_skyNode) { 
     if (g_currentView == g_skyNode) { 
       if (g_currentSkyView == 0) {
-                            cout << "hahh..................setAFrame 1..........................." <<endl;
+
         g_auxFrame = linFact(g_skyNode->getRbt()); 
       } else {
-                                    cout << "hahh..................setAFrame 2..........................." <<endl;
-        g_auxFrame = g_skyNode->getRbt();
+              g_auxFrame = g_skyNode->getRbt();
       }
     }
   } else {
@@ -351,11 +350,9 @@ static void setAFrame(){
 
 
 static void drawStuff(const ShaderState& curSS, bool picking) {
-                    cout << "hahh..................drawstuff invoked..........................." <<endl;
+
   setAFrame();
 
-
-                  cout << "hahh..................drawstuff 1..........................." <<endl;
   // build & send proj. matrix to vshader
   const Matrix4 projmat = makeProjectionMatrix();
 
@@ -418,16 +415,14 @@ static void drawStuff(const ShaderState& curSS, bool picking) {
     g_world->accept(picker);
     glFlush();
     g_currentPickedRbtNode = picker.getRbtNodeAtXY(g_mouseClickX, g_mouseClickY);
-    if (g_currentPickedRbtNode == g_groundNode)// || g_currentPickedRbtNode == NULL) //??????
-            //g_currentPickedRbtNode = shared_ptr<SgRbtNode>(); 
+    if ((g_currentPickedRbtNode == g_groundNode)||(g_currentPickedRbtNode == nullptr))//??????
+            g_currentPickedRbtNode = shared_ptr<SgRbtNode>(); 
 
-      g_currentPickedRbtNode = g_skyNode;
-
-      else
-        g_picking = 0;
-      g_activeShader = 0;
+      // else
+      //   g_picking = 0;
+      // g_activeShader = 0;
   }
-                  cout << "hahh..................drawstuff ended..........................." <<endl;
+                  // cout << "hahh..................drawstuff ended..........................." <<endl;
 }
 
 
@@ -577,17 +572,24 @@ static void reset()
 }
 
 static void pick() {
-
+  // We need to set the clear color to black, for pick rendering.
+  // so let's save the clear color
   GLdouble clearColor[4];
   glGetDoublev(GL_COLOR_CLEAR_VALUE, clearColor);
 
   glClearColor(0, 0, 0, 0);
 
+  // using PICKING_SHADER as the shader
   glUseProgram(g_shaderStates[PICKING_SHADER]->program);
 
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   drawStuff(*g_shaderStates[PICKING_SHADER], true);
 
+  // Uncomment below and comment out the glutPostRedisplay in mouse(...) call back
+  // to see result of the pick rendering pass
+  // glutSwapBuffers();
+
+  //Now set back the clear color
   glClearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
 
   checkGlErrors();
@@ -875,11 +877,8 @@ int main(int argc, char * argv[]) {
     initShaders();
 
     initGeometry();
-                cout << "hahh...................1.........................." <<endl;
-                        // g_auxFrame = g_skyNode->getRbt(); 
-                                        cout << "hahh..................2..........................." <<endl;
+        initScene();
     glutMainLoop();
-g_skyrbtg
 
     return 0;
   }
