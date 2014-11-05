@@ -44,7 +44,6 @@ public:
     if (found_) {
       return rbtStack_[rbtStack_.size() -1 - offsetFromStackTop];
     } 
-    return rbtStack_[rbtStack_.size() -1 - offsetFromStackTop];//!!!!
   }
 
   virtual bool visit(SgTransformNode& node) {

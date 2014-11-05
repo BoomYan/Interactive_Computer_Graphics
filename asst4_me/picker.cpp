@@ -3,7 +3,7 @@
 #include "picker.h"
 
 using namespace std;
-// using namespace std::tr1;
+
 
 Picker::Picker(const RigTForm& initialRbt, const ShaderState& curSS)
   : drawer_(initialRbt, curSS)
@@ -24,10 +24,12 @@ bool Picker::postVisit(SgTransformNode& node) {
 
 bool Picker::visit(SgShapeNode& node) {
   // TODO
+
   idCounter_++;
 
   int i = nodeStack_.size()-1;
 
+  // run through node stack (LIFO)
   do {
 
     shared_ptr<SgRbtNode> rbtNode = dynamic_pointer_cast<SgRbtNode>(nodeStack_[i]);
@@ -58,7 +60,7 @@ shared_ptr<SgRbtNode> Picker::getRbtNodeAtXY(int x, int y) {
 
   int id = colorToId(color);
 
-  return shared_ptr<SgRbtNode>(); // return null for now
+  return find(id);
 }
 
 //------------------

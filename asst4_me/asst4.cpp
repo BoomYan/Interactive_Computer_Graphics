@@ -5,9 +5,9 @@
 //   Professor Steven Gortler
 //
 ////////////////////////////////////////////////////////////////////////
-//	These skeleton codes are later altered by Ming Jin,
-//	for "CS6533: Interactive Computer Graphics", 
-//	taught by Prof. Andy Nealen at NYU
+//  These skeleton codes are later altered by Ming Jin,
+//  for "CS6533: Interactive Computer Graphics", 
+//  taught by Prof. Andy Nealen at NYU
 ////////////////////////////////////////////////////////////////////////
 
 #include <vector>
@@ -235,7 +235,7 @@ static RigTForm g_auxFrame;  // g_auxFrame is the auxiliary frame for manipulati
 
 
 
-static void setPicking();
+static void setPicking(bool a);
 
 static void initGround() {
   /**
@@ -278,8 +278,15 @@ static void initSpheres() {
   g_sphere.reset(new Geometry(&vtx[0], &idx[0], vbLen, ibLen));
 }
 
+// takes a projection matrix and send to the the shaders
+static void sendProjectionMatrix(const ShaderState& curSS, const Matrix4& projMatrix) {
+  GLfloat glmatrix[16];
+  projMatrix.writeToColumnMajorMatrix(glmatrix); // send projection matrix
+  safe_glUniformMatrix4fv(curSS.h_uProjMatrix, glmatrix);
+}
+
 static bool nonEgoCubeManipulation() {
-  return g_currentManipulatingObject != 0 && g_currentViewIndex != g_currentManipulatingObject;
+  return g_currentPickedRbtNode != g_skyNode && g_currentView != g_currentPickedRbtNode;
 }
 
 static bool useArcball() {
@@ -287,16 +294,11 @@ static bool useArcball() {
 }
 
 static bool worldSkyManipulation() {
-  return g_currentManipulatingObject == 0 && g_currentViewIndex == 0 && g_currentSkyView == 0;
+  return g_currentPickedRbtNode == g_skyNode && g_currentView == g_skyNode && g_currentSkyView == 0;
 }
 
 
-// takes a projection matrix and send to the the shaders
-static void sendProjectionMatrix(const ShaderState& curSS, const Matrix4& projMatrix) {
-  GLfloat glmatrix[16];
-  projMatrix.writeToColumnMajorMatrix(glmatrix); // send projection matrix
-  safe_glUniformMatrix4fv(curSS.h_uProjMatrix, glmatrix);
-}
+
 
 // // takes MVM and its normal matrix to the shaders
 // static void sendModelViewNormalMatrix(const ShaderState& curSS, const Matrix4& MVM, const Matrix4& NMVM) {
@@ -394,9 +396,6 @@ static void drawStuff(const ShaderState& curSS, bool picking) {
       );
     }
 
-  // draw ground
-  // ===========
-  //
 
    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
@@ -416,11 +415,7 @@ static void drawStuff(const ShaderState& curSS, bool picking) {
     glFlush();
     g_currentPickedRbtNode = picker.getRbtNodeAtXY(g_mouseClickX, g_mouseClickY);
     if ((g_currentPickedRbtNode == g_groundNode)||(g_currentPickedRbtNode == nullptr))//??????
-            g_currentPickedRbtNode = shared_ptr<SgRbtNode>(); 
-
-      // else
-      //   g_picking = 0;
-      // g_activeShader = 0;
+            g_currentPickedRbtNode = g_skyNode; 
   }
                   // cout << "hahh..................drawstuff ended..........................." <<endl;
 }
@@ -493,7 +488,7 @@ static RigTForm getArcballRotation(const int x, const int y) {
 
 
 static void motion(const int x, const int y) {    
-   if (g_currentViewIndex != 0 && g_currentManipulatingObject == 0) return;
+  if (g_currentView != g_skyNode && g_currentPickedRbtNode == g_skyNode) return;
 
   const double curr_x = x;
   const double curr_y = g_windowHeight - y - 1;
@@ -555,12 +550,12 @@ static void motion(const int x, const int y) {
 
 static void reset()
 {
-	// =========================================================
-	// TODO:
-	// - reset g_skyRbt and g_objectRbt to their default values
-	// - reset the views and manipulation mode to default
-	// - reset sky camera mode to use the "world-sky" frame
-	// =========================================================
+  // =========================================================
+  // TODO:
+  // - reset g_skyRbt and g_objectRbt to their default values
+  // - reset the views and manipulation mode to default
+  // - reset sky camera mode to use the "world-sky" frame
+  // =========================================================
   // g_skyRbt = Matrix4::makeTranslation(Cvec3(0.0, 0.25, 4.0));
   // g_objectRbt[0] = Matrix4::makeTranslation(Cvec3(-1,0,0)); 
   // g_objectRbt[1] = Matrix4::makeTranslation(Cvec3(1,0,0)); 
@@ -568,7 +563,7 @@ static void reset()
   // g_currentManipulatingObject = 0;
   // g_currentSkyView = 0;
 
-	cout << "reset all to defaults not implemented" << endl;
+  cout << "reset all to defaults not implemented" << endl;
 }
 
 static void pick() {
@@ -612,7 +607,7 @@ static void mouse(const int button, const int state, const int x, const int y) {
 
   if (g_picking && g_mouseLClickButton && !g_mouseRClickButton) {
     pick();
-    setPicking();
+    setPicking(false);
   }
   glutPostRedisplay();
 }
@@ -639,24 +634,36 @@ static void setCurrentView() {
   if (g_currentViewIndex == 0) {
     cout << "Current view is sky view" << endl;
   } else {
-    cout << "Current view is cube" << g_currentViewIndex << " view" << endl;
+    cout << "Current view is robot" << g_currentViewIndex << " view" << endl;
+
+  switch (g_currentViewIndex) {
+    case 0:
+      g_currentView = g_skyNode;
+      break;
+    case 1:
+      g_currentView = g_robot1Node;
+      break;
+    case 2:
+      g_currentView = g_robot2Node;
+      break;
+  }
   }
 }
 
-//set the current manipulating object
-static void setCurrentManipulatingObject(){
-  g_currentManipulatingObject++;
-  if (g_currentManipulatingObject == 3) g_currentManipulatingObject=0;
-  if (g_currentManipulatingObject == 0) {
-    cout << "Current manipulating object is sky" << endl;
-  } else {
-    cout << "Current manipulating object is cube" << g_currentManipulatingObject << endl;
-  }
-}
+// //set the current manipulating object
+// static void setCurrentManipulatingObject(){
+//   g_currentManipulatingObject++;
+//   if (g_currentManipulatingObject == 3) g_currentManipulatingObject=0;
+//   if (g_currentManipulatingObject == 0) {
+//     cout << "Current manipulating object is sky" << endl;
+//   } else {
+//     cout << "Current manipulating object is cube" << g_currentManipulatingObject << endl;
+//   }
+// }
 
 //set the g_picking
-static void setPicking() {
-  g_picking = !g_picking;
+static void setPicking(bool a) {
+  g_picking = a;
   if (g_picking)
   cout << "Ready to pick" << endl;
   else
@@ -696,7 +703,7 @@ static void keyboard(const unsigned char key, const int x, const int y) {
     setCurrentSkyView();
   break;
   case 'p':
-    setPicking();
+    setPicking(true);
   break;
   case 'r':
     reset();
