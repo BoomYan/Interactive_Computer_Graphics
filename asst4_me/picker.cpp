@@ -24,6 +24,8 @@ bool Picker::postVisit(SgTransformNode& node) {
 
 bool Picker::visit(SgShapeNode& node) {
   // TODO
+  idCounter_++;
+  
   int i = nodeStack_.size()-1;
 
   do {
