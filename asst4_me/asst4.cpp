@@ -417,7 +417,7 @@ static void drawStuff(const ShaderState& curSS, bool picking) {
     if ((g_currentPickedRbtNode == g_groundNode)||(g_currentPickedRbtNode == nullptr))//??????
             g_currentPickedRbtNode = g_skyNode; 
   }
-                  // cout << "hahh..................drawstuff ended..........................." <<endl;
+
 }
 
 
@@ -428,7 +428,7 @@ static void display() {
 
   drawStuff(*g_shaderStates[g_activeShader], g_picking);
 
-  glutSwapBuffers();                                    // show the back buffer (where we rendered stuff)
+  // glutSwapBuffers();                                    // show the back buffer (where we rendered stuff)
 
   if (!g_picking) {
     glutSwapBuffers();
