@@ -40,7 +40,13 @@
 #include "drawer.h"
 #include "picker.h"
 
+#include <iostream>
+#include <fstream>
+#include <sstream>
+
 #include "sgutils.h"
+#include "list"
+
 
 using namespace std;      // for string, vector, iostream, and other standard C++ stuff
 // using namespace tr1; // for shared_ptr
@@ -85,46 +91,6 @@ static int g_activeShader = 0;
 static int g_currentViewIndex = 0;                 // 0 is sky view, 1 is cube1 view, 2 is cube2 view
 static int g_currentManipulatingObject = 0;   // 0 is sky, 1 is cube 1, 2 is cube2 
 static int g_currentSkyView=0;                // 0 is world-sky view, 1 is sky-sky view
-
-
-
-// struct ShaderState {
-//   GlProgram program;
-
-//   // Handles to uniform variables
-//   GLint h_uLight, h_uLight2;
-//   GLint h_uProjMatrix;
-//   GLint h_uModelViewMatrix;
-//   GLint h_uNormalMatrix;
-//   GLint h_uColor;
-
-//   // Handles to vertex attributes
-//   GLint h_aPosition;
-//   GLint h_aNormal;
-
-//   ShaderState(const char* vsfn, const char* fsfn) {
-//     readAndCompileShader(program, vsfn, fsfn);
-
-//     const GLuint h = program; // short hand
-
-//     // Retrieve handles to uniform variables
-//     h_uLight = safe_glGetUniformLocation(h, "uLight");
-//     h_uLight2 = safe_glGetUniformLocation(h, "uLight2");
-//     h_uProjMatrix = safe_glGetUniformLocation(h, "uProjMatrix");
-//     h_uModelViewMatrix = safe_glGetUniformLocation(h, "uModelViewMatrix");
-//     h_uNormalMatrix = safe_glGetUniformLocation(h, "uNormalMatrix");
-//     h_uColor = safe_glGetUniformLocation(h, "uColor");
-
-//     // Retrieve handles to vertex attributes
-//     h_aPosition = safe_glGetAttribLocation(h, "aPosition");
-//     h_aNormal = safe_glGetAttribLocation(h, "aNormal");
-
-//     if (!g_Gl2Compatible)
-//       glBindFragDataLocation(h, 0, "fragColor");
-//     checkGlErrors();
-//   }
-
-// };
 
 static bool g_picking = false;
 static const int PICKING_SHADER = 2;
@@ -199,7 +165,7 @@ struct Geometry {
 
     safe_glVertexAttribPointer(curSS.h_aNormal, 3, GL_FLOAT, GL_FALSE, sizeof(VertexPN), FIELD_OFFSET(VertexPN, n));
 
-        // bind ibo
+    // bind ibo
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
 
     // draw!
@@ -232,6 +198,20 @@ static double g_arcballScreenRadius = 1.0;
 static double g_arcballScale = 1.0;
 
 static RigTForm g_auxFrame;  // g_auxFrame is the auxiliary frame for manipulation
+
+
+static int g_msBetweenKeyFrames = 2000; // 2 seconds between keyframes
+static int g_animateFramesPerSecond = 60; // frames to render per second during animation playback
+
+static const string g_fileName = "frames.txt";
+
+vector<shared_ptr<SgRbtNode> > g_rbts;
+
+
+list< vector<RigTForm> > g_keyframes;
+
+list< vector<RigTForm> >::iterator g_currentKeyFrame = g_keyframes.begin();
+
 
 ///////////////// END OF G L O B A L S //////////////////////////////////////////////////
 
@@ -416,7 +396,7 @@ static void drawStuff(const ShaderState& curSS, bool picking) {
     g_world->accept(picker);
     glFlush();
     g_currentPickedRbtNode = picker.getRbtNodeAtXY(g_mouseClickX, g_mouseClickY);
-    if ((g_currentPickedRbtNode == g_groundNode)||(g_currentPickedRbtNode == nullptr))//??????
+    if ((g_currentPickedRbtNode == g_groundNode)||(g_currentPickedRbtNode == nullptr))
             g_currentPickedRbtNode = g_skyNode; 
   }
 
@@ -673,8 +653,166 @@ static void setPicking(bool a) {
 }
 
 
+bool interpolateAndDisplay(float t) {
+  if(t >= g_keyframes.size()-2)  return true;
+
+
+  const int floorT = int(floor(t));
+  const double alpha = t - floorT;
+
+  list< vector<RigTForm> >::iterator i0 = g_keyframes.begin();
+  std::advance(i0, floorT);
+  list<vector<RigTForm> >::iterator i1=i0;
+  ++i1;
+
+  for(int i=0; i<g_rbts.size(); ++i) {
+    g_rbts[i]->setRbt(interpolate((*i0)[i],(*i1)[i],alpha));
+  } 
+
+
+
+  glutPostRedisplay();
+
+  return false;
+}
+
+// Interpret "ms" as milliseconds into the animation
+static void animateTimerCallback(int ms) {
+  float t = (float)ms/(float)g_msBetweenKeyFrames;
+  bool endReached = interpolateAndDisplay(t);
+  if (!endReached)
+    glutTimerFunc(1000/g_animateFramesPerSecond,
+    animateTimerCallback,
+    ms + 1000/g_animateFramesPerSecond);
+  else
+    cout<<"Reached the end of the animation."<<endl;
+
+}
+
+static void insertKeyFrame(){
+    vector<RigTForm> keyframe;
+
+    for(vector< shared_ptr<SgRbtNode> >::iterator i = g_rbts.begin(); i != g_rbts.end(); ++i) {
+      keyframe.push_back((*i)->getRbt());
+    }
+
+    g_currentKeyFrame++;
+    g_keyframes.insert(g_currentKeyFrame, keyframe);
+    g_currentKeyFrame--;
+    
+    cout << "Inserted new keyframe." << endl;
+}
+
+static void updateCurrentKeyFrame(){
+    if (g_keyframes.size() == 0) {
+      insertKeyFrame();
+    } else {
+      for (int i=0; i<g_rbts.size(); ++i) {
+        (*g_currentKeyFrame)[i] = g_rbts[i]->getRbt();
+      }
+      cerr << "Updated current keyframe." << endl;
+    }
+    
+}
+
+static void copyCurrentKeyFrameToSceneGraph(){
+    for(int i=0; i<g_rbts.size(); ++i) {
+      g_rbts[i]->setRbt((*g_currentKeyFrame)[i]);
+    }
+
+    cout << "Copied current keyframe to scenegraph." << endl;
+}
+
+static void goToPreviousKeyFrame(){
+     if(--g_currentKeyFrame == g_keyframes.begin())
+    {
+      cout<<"It's the first frame"<<endl;
+      g_currentKeyFrame++;
+    }
+    else{
+      for(int i=0; i<g_rbts.size(); ++i) {
+        g_rbts[i]->setRbt((*g_currentKeyFrame)[i]);
+      }
+
+      cout << "Went to the previous keyframe." << endl;
+
+    } 
+
+}
+
+static void goToNextKeyFrame(){
+    if(++g_currentKeyFrame == g_keyframes.end())
+    {
+      cout<<"It's the last frame"<<endl;
+      g_currentKeyFrame--;
+    }
+    else{
+      for(int i=0; i<g_rbts.size(); ++i) {
+        g_rbts[i]->setRbt((*g_currentKeyFrame)[i]);
+      }
+
+      cout << "Went to the next keyframe." << endl;
+
+    } 
+
+}
+
+static void deleteCurrentKeyFrame(){
+
+    if (g_keyframes.size() == 0) {
+      return;
+    }
+
+    if (g_currentKeyFrame-- != g_keyframes.begin()) {
+
+      g_currentKeyFrame++;
+      g_currentKeyFrame = g_keyframes.erase(g_currentKeyFrame);
+      g_currentKeyFrame--;
+
+    } else {
+
+      g_currentKeyFrame++;
+      g_currentKeyFrame = g_keyframes.erase(g_currentKeyFrame);
+
+    }
+
+    if (g_keyframes.size() > 0) {
+      for(int i=0; i<g_rbts.size(); ++i) {
+        g_rbts[i]->setRbt((*g_currentKeyFrame)[i]);
+      }    
+    }
+
+    cout << "Deleted current keyframe." << endl;
+}
+
+static void writeFramesToFile(){
+    ofstream file;
+    file.open (g_fileName);
+    for(list< vector<RigTForm> >::iterator it = g_keyframes.begin(); it != g_keyframes.end(); ++it) {
+      for(int i=0; i<g_rbts.size(); ++i) {
+        Cvec3 t_ = (*it)[i].getTranslation();
+        Quat r_ = (*it)[i].getRotation();
+        file << t_[0] << " " << t_[1] << " " << t_[2] << " " << r_[0] << " " << r_[1] << " " << r_[2] << " " << r_[3] << '\n';
+      }
+
+    }
+    file.close();
+    cout << "Written frames to file "<<g_fileName << endl;
+}
+
+static void inputFramesFromFile(){
+    vector<RigTForm> keyframe;
+    ifstream file;
+    file.open(g_fileName);
+    if (file == NULL) {
+      cout << "No file found, please check the file again" <<endl;
+    }
+
+    cout << "..." << endl;
+}
 
 static void keyboard(const unsigned char key, const int x, const int y) {
+
   switch (key) {
   case 27:
     exit(0);                                  // ESC
@@ -710,16 +848,43 @@ static void keyboard(const unsigned char key, const int x, const int y) {
   case 'r':
     reset();
   break;
+    case 'n':
+    insertKeyFrame();
+    break;
+  case '+':
+    g_msBetweenKeyFrames-=200;
+    cout << "msBetweenKeyFrames is decreased to" << g_msBetweenKeyFrames <<"."<<endl;
+    break;
+  case '-':
+    g_msBetweenKeyFrames+=200;
+    cout << "msBetweenKeyFrames is increased to" << g_msBetweenKeyFrames <<"."<<endl;
+    break;
+  case 'y':
+    animateTimerCallback(0);
+    break;
+  case 'u':
+    updateCurrentKeyFrame();
+    break;
+  case 32:
+    copyCurrentKeyFrameToSceneGraph();
+    break;
+  case 60:
+    goToPreviousKeyFrame();
+    break;
+  case 62:
+    goToNextKeyFrame();
+    break;
+  case 'd':
+    deleteCurrentKeyFrame();
+    break;
+  case 'w':
+    writeFramesToFile();
+    break;
+  case 'i':
+    inputFramesFromFile();
 
+    break;
 
-  // ============================================================
-  // TODO: add the following functionality for 
-  //       keybaord inputs
-  // - 'v': cycle through the 3 views
-  // - 'o': cycle through the 3 objects being manipulated
-  // - 'm': switch between "world-sky" frame and "sky-sky" frame
-  // - 'r': reset the scene
-  // ============================================================
   }
   glutPostRedisplay();
 }
@@ -729,7 +894,7 @@ static void initGlutState(int argc, char * argv[]) {
   glutInit(&argc, argv);                                  // initialize Glut based on cmd-line args
   glutInitDisplayMode(GLUT_RGBA|GLUT_DOUBLE|GLUT_DEPTH);  //  RGBA pixel channels and double buffering
   glutInitWindowSize(g_windowWidth, g_windowHeight);      // create a window
-  glutCreateWindow("Assignment 4");                       // title the window
+  glutCreateWindow("Assignment 5");                       // title the window
 
   glutDisplayFunc(display);                               // display rendering callback
   glutReshapeFunc(reshape);                               // window reshape callback
@@ -768,14 +933,15 @@ static void initGeometry() {
   initSpheres();
 }
 
+
 static void constructRobot(shared_ptr<SgTransformNode> base, const Cvec3& color) {
 
-const double ARM_LEN = 0.7,
-               ARM_THICK = 0.25,
-               TORSO_LEN = 1.5,
-               TORSO_THICK = 0.25,
-               TORSO_WIDTH = 1,
-               HEAD_RADIUS = 0.25;
+  const double ARM_LEN = 0.7,
+               ARM_THICK = 0.25,
+               TORSO_LEN = 1.5,
+               TORSO_THICK = 0.25,
+               TORSO_WIDTH = 1,
+               HEAD_RADIUS = 0.35;
   const int NUM_JOINTS = 10,
             NUM_SHAPES = 10;
 
@@ -804,17 +970,20 @@ const double ARM_LEN = 0.7,
   };
 
   ShapeDesc shapeDesc[NUM_SHAPES] = {
-    {0, 0,            0, 0, TORSO_WIDTH, TORSO_LEN, TORSO_THICK, g_cube},   // torso
-    {1, ARM_LEN/2,    0, 0, ARM_LEN, ARM_THICK, ARM_THICK, g_cube},         // upper right arm
-    {2, ARM_LEN/2,    0, 0, ARM_LEN/2, ARM_THICK/2, ARM_THICK/2, g_sphere},   // lower right arm
-    {3, -ARM_LEN/2,   0, 0, ARM_LEN, ARM_THICK, ARM_THICK, g_cube},         // upper left arm
-    {4, -ARM_LEN/2,   0, 0, ARM_LEN/2, ARM_THICK/2, ARM_THICK/2, g_sphere},   // lower left arm
-    {5, 0, HEAD_RADIUS,  0, HEAD_RADIUS, HEAD_RADIUS, HEAD_RADIUS, g_sphere}, //head
-    {6, 0, -ARM_LEN/2,   0, ARM_THICK*1.1, ARM_LEN, ARM_THICK*1.1, g_cube},       // upper right leg
-    {7, 0, -ARM_LEN/2,   0, ARM_THICK/2, ARM_LEN/2, ARM_THICK/2, g_sphere},   // lower right leg
-    {8, 0, -ARM_LEN/2,   0, ARM_THICK*1.1, ARM_LEN, ARM_THICK*1.1, g_cube},         // upper left leg
-    {9, 0, -ARM_LEN/2,   0, ARM_THICK/2, ARM_LEN/2, ARM_THICK/2, g_sphere}    // lower left leg
-  };
+    {0, 0,         0, 0, TORSO_WIDTH, TORSO_LEN, TORSO_THICK, g_cube}, // torso
+
+    {1,  ARM_LEN/2, 0, 0, ARM_LEN, ARM_THICK, ARM_THICK, g_cube}, // upper right arm
+    {2,  ARM_LEN/2, 0, 0, ARM_LEN, ARM_THICK * 0.7, ARM_THICK, g_cube}, // lower right arm
+    {3, -ARM_LEN/2, 0, 0, ARM_LEN, ARM_THICK, ARM_THICK, g_cube}, // upper left arm
+    {4, -ARM_LEN/2, 0, 0, ARM_LEN, ARM_THICK * 0.7, ARM_THICK, g_cube}, // lower left arm
+
+    {5, 0,  HEAD_RADIUS, 0, HEAD_RADIUS, HEAD_RADIUS, HEAD_RADIUS, g_sphere}, // noggin
+
+    {6, 0, -ARM_LEN/2, 0, ARM_THICK, ARM_LEN, ARM_THICK, g_cube}, // upper right leg
+    {7, 0, -ARM_LEN/2, 0, ARM_THICK * 0.7, ARM_LEN, ARM_THICK, g_cube}, // lower right leg
+    {8, 0, -ARM_LEN/2, 0, ARM_THICK, ARM_LEN, ARM_THICK, g_cube}, // upper left leg
+    {9, 0, -ARM_LEN/2, 0, ARM_THICK * 0.7, ARM_LEN, ARM_THICK, g_cube}, // lower left leg
+  };
 
   shared_ptr<SgTransformNode> jointNodes[NUM_JOINTS];
 
@@ -861,6 +1030,8 @@ static void initScene() {
   g_world->addChild(g_groundNode);
   g_world->addChild(g_robot1Node);
   g_world->addChild(g_robot2Node);
+
+  dumpSgRbtNodes(g_world, g_rbts);
 }
 
 

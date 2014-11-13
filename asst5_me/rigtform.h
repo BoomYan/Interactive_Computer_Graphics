@@ -78,4 +78,15 @@ inline Matrix4 rigTFormToMatrix(const RigTForm& tform) {
     return t * r;
 }
 
+
+
+inline Cvec3 lerp(const Cvec3& c0, const Cvec3& c1, const double alpha) {
+  return c0*(1-alpha) + c1*alpha;
+}
+
+inline RigTForm interpolate(const RigTForm& r0, const RigTForm& r1, const double alpha) {
+  return RigTForm(lerp(r0.getTranslation(),r1.getTranslation(),alpha),slerp(r0.getRotation(),r1.getRotation(),alpha));
+}
+
+
 #endif

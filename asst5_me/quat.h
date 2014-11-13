@@ -154,4 +154,34 @@ inline Matrix4 quatToMatrix(const Quat& q) {
   return r;
 }
 
+
+inline Quat power(const Quat &a, const double alpha) {
+
+  double beta = std::sqrt(a[1]*a[1] + a[2]*a[2] + a[3]*a[3]);
+  double phi = std::atan2(beta, a[0]);
+
+  if (std::abs(phi) < CS175_EPS)
+    return Quat();
+
+  return Quat(cos(alpha*phi),
+              sin(alpha*phi)*a[1]/beta,
+              sin(alpha*phi)*a[2]/beta,
+              sin(alpha*phi)*a[3]/beta);
+
+}
+
+inline Quat cn(const Quat &a) {
+  return Quat(-a[0], -a[1], -a[2], -a[3]);
+}
+
+inline Quat slerp(const Quat &a, const Quat &b, const double alpha) {
+  Quat c = b * inv(a);
+
+  if (c[0] < 0) {
+    c = cn(c);
+  }
+
+  return power(c, alpha) * a;
+}
+
 #endif
