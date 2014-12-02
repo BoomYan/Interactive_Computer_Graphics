@@ -49,8 +49,6 @@
 
 #include "geometry.h"
 
-#include "mesh.h"
-
 using namespace std;      // for string, vector, iostream, and other standard C++ stuff
 // using namespace tr1; // for shared_ptr
 
@@ -97,9 +95,6 @@ static int g_currentSkyView                                    = 0;             
 
 static bool g_picking                                          = false;
 static const int PICKING_SHADER                                = 2;
-
-static Mesh g_mesh;
-static bool g_smoothShading = true;
 // static const int g_numShaders                               = 3;
 // static const char * const g_shaderFiles[g_numShaders][2]    = {
 //   {"./shaders/basic-gl3.vshader", "./shaders/diffuse-gl3.fshader"},
@@ -116,8 +111,7 @@ g_blueDiffuseMat,
 g_bumpFloorMat,
 g_arcballMat,
 g_pickingMat,
-g_lightMat,
-g_meshMat;
+g_lightMat;
 
 shared_ptr<Material> g_overridingMaterial;
 typedef SgGeometryShapeNode MyShapeNode;
@@ -199,11 +193,9 @@ typedef SgGeometryShapeNode MyShapeNode;
 // Vertex buffer and index buffer associated with the ground and cube geometry
 static shared_ptr<Geometry> g_ground, g_cube, g_sphere;
 static shared_ptr<SgRootNode> g_world;
-static shared_ptr<SgRbtNode> g_skyNode, g_groundNode, g_robot1Node, g_robot2Node, g_light1Node, g_light2Node, g_meshNode;
+static shared_ptr<SgRbtNode> g_skyNode, g_groundNode, g_robot1Node, g_robot2Node, g_light1Node, g_light2Node;
 static shared_ptr<SgRbtNode> g_currentPickedRbtNode;
 static shared_ptr<SgRbtNode> g_currentView; 
-
-static shared_ptr<SimpleGeometryPN> g_meshGeometry;
 // --------- Scene
 
 // static const Cvec3 g_light1(2.0, 3.0, 14.0), g_light2(-2, -3.0, -5.0);  // define two lights positions in world space
@@ -272,14 +264,6 @@ static void initSphere() {
 }
 
 
-static void initMesh() {
-	g_mesh.load("cube.mesh");
-
-	g_meshGeometry.reset(new SimpleGeometryPN);
-	g_meshGeometry->upload(g_mesh, g_smoothShading);
-}
-
-
 // takes a projection matrix and send to the the shaders
 // static void sendProjectionMatrix(const ShaderState& curSS, const Matrix4& projMatrix) {
 //   GLfloat glmatrix[16];
@@ -336,23 +320,23 @@ static Matrix4 makeProjectionMatrix() {
 //set auxFrame for transformation
 static void setAFrame(){
 
-	if (g_currentPickedRbtNode == g_skyNode) { 
-		if (g_currentView == g_skyNode) { 
-			if (g_currentSkyView == 0) {
+ if (g_currentPickedRbtNode == g_skyNode) { 
+    if (g_currentView == g_skyNode) { 
+      if (g_currentSkyView == 0) {
 
-				g_auxFrame                                                 = linFact(g_skyNode->getRbt()); 
-			} else {
-				g_auxFrame                                                 = g_skyNode->getRbt();
-			}
-		}
-	} else {
-		if (g_currentView == g_skyNode) { 
-			g_auxFrame                                                  = inv(getPathAccumRbt(g_world, g_currentPickedRbtNode, 1)) *
-				transFact(getPathAccumRbt(g_world, g_currentPickedRbtNode)) * linFact(getPathAccumRbt(g_world, g_skyNode));
-		} else { 
-			g_auxFrame                                                  = inv(getPathAccumRbt(g_world, g_currentPickedRbtNode, 1)) * getPathAccumRbt(g_world, g_currentPickedRbtNode);
-		}
-	}
+        g_auxFrame = linFact(g_skyNode->getRbt()); 
+      } else {
+              g_auxFrame = g_skyNode->getRbt();
+      }
+    }
+  } else {
+    if (g_currentView == g_skyNode) { 
+      g_auxFrame = inv(getPathAccumRbt(g_world, g_currentPickedRbtNode, 1)) *
+        transFact(getPathAccumRbt(g_world, g_currentPickedRbtNode)) * linFact(getPathAccumRbt(g_world, g_skyNode));
+    } else { 
+      g_auxFrame = inv(getPathAccumRbt(g_world, g_currentPickedRbtNode, 1)) * getPathAccumRbt(g_world, g_currentPickedRbtNode);
+    }
+  }
 
 }
 
@@ -370,7 +354,7 @@ static void drawStuff(bool picking) {
 	sendProjectionMatrix(uniforms, projmat);
 
 	const RigTForm eyeRbt                                         = getPathAccumRbt(g_world, g_currentView);
-
+  
 	const RigTForm invEyeRbt                                      = inv(eyeRbt);
 
 
@@ -490,7 +474,7 @@ static RigTForm getArcballRotation(const int x, const int y) {
 		g_windowHeight
 			);
 	}
-
+  
 	const Cvec3 sphere_center                                     = Cvec3(sphereOnScreenCoords, 0);
 	const Cvec3 p1                                                = Cvec3(g_mouseClickX, g_mouseClickY, 0) - sphere_center;
 	const Cvec3 p2                                                = Cvec3(x, y, 0) - sphere_center;
@@ -530,7 +514,7 @@ static void motion(const int x, const int y) {
 
 
 	const bool use_arcball                                        = useArcball();  
-
+  
 	double translateFactor;
 	if (use_arcball) {
 		translateFactor                                              = g_arcballScale;
@@ -554,7 +538,7 @@ static void motion(const int x, const int y) {
 	else if (g_mouseMClickButton || (g_mouseLClickButton && g_mouseRClickButton)) {  // middle or (left and right) button down?
 		m                                                            = RigTForm(Cvec3(0, 0, -dy_t) * translateFactor);
 	}
-
+  
 	if (g_mouseClickDown) {
 		m                                                            = g_auxFrame * m * inv(g_auxFrame);
 
@@ -741,7 +725,7 @@ static void insertKeyFrame(){
 	g_currentKeyFrame++;
 	g_keyframes.insert(g_currentKeyFrame, keyframe);
 	g_currentKeyFrame--;
-
+    
 	cout << "Inserted new keyframe." << endl;
 }
 
@@ -754,7 +738,7 @@ static void updateCurrentKeyFrame(){
 		}
 		cerr << "Updated current keyframe." << endl;
 	}
-
+    
 }
 
 static void copyCurrentKeyFrameToSceneGraph(){
@@ -997,9 +981,6 @@ static void initMaterials() {
 
 	// pick shader
 	g_pickingMat.reset(new Material("./shaders/basic-gl3.vshader", "./shaders/pick-gl3.fshader"));
-
-	g_meshMat.reset(new Material("./shaders/basic-gl3.vshader", "./shaders/specular-gl3.fshader"));
-	g_meshMat->getUniforms().put("uColor", Cvec3f(0, 1, 0));
 };
 
 
@@ -1086,9 +1067,6 @@ static void constructRobot(shared_ptr<SgTransformNode> base, shared_ptr<Material
 static void initScene() {
 	g_world.reset(new SgRootNode());
 
-
-
-
 	g_skyNode.reset(new SgRbtNode(RigTForm(Cvec3(0.0, 0.25, 4.0))));
 	g_auxFrame                                                    = linFact(g_skyNode->getRbt());
 	g_currentPickedRbtNode                                        = g_skyNode;
@@ -1109,20 +1087,16 @@ static void initScene() {
 	g_light2Node->addChild(shared_ptr<MyShapeNode>(
 		new MyShapeNode(g_sphere, g_lightMat)));
 
-	g_meshNode.reset(new SgRbtNode(RigTForm(Cvec3())));
-	g_meshNode->addChild(shared_ptr<MyShapeNode>(new MyShapeNode(g_meshGeometry, g_meshMat, Cvec3())));
-
 
 	constructRobot(g_robot1Node, g_redDiffuseMat); // a Red robot
 	constructRobot(g_robot2Node, g_blueDiffuseMat); // a Blue robot
-
+  
 	g_world->addChild(g_skyNode);
 	g_world->addChild(g_groundNode);
 	g_world->addChild(g_robot1Node);
 	g_world->addChild(g_robot2Node);
 	g_world->addChild(g_light1Node);
 	g_world->addChild(g_light2Node);
-	g_world->addChild(g_meshNode);
 
 	dumpSgRbtNodes(g_world, g_rbts);
 }
@@ -1142,7 +1116,7 @@ int main(int argc, char * argv[]) {
 			throw runtime_error("Error: card/driver does not support OpenGL Shading Language v1.3");
 		else if (g_Gl2Compatible && !GLEW_VERSION_2_0)
 			throw runtime_error("Error: card/driver does not support OpenGL Shading Language v1.0");
-		initMesh();
+
 		initGLState();
 		//initShaders();
 		initMaterials();

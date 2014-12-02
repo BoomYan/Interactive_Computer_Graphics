@@ -16,6 +16,7 @@
 #include "cvec.h"
 #include "glsupport.h"
 #include "geometrymaker.h"
+#include "mesh.h"
 
 // An abstract class that encapsulates geometry data that provides vertex attributes and
 // know how to draw itself.
@@ -427,6 +428,22 @@ public:
   void upload(const Vertex* vertices, int numVertices) {
     vbo->upload(vertices, numVertices, true);
   }
+  void upload(Mesh& mesh, bool isSmoothShading) {
+    std::vector<VertexPN> vertices;
+    if (isSmoothShading) {
+      mesh.updateNormals();
+    }
+    for (int i= 0; i < mesh.getNumFaces(); i++) {
+      Mesh::Face face = mesh.getFace(i);
+      for (int j = 0; j < 3; j++) {
+        vertices.push_back(VertexPN(face.getVertex(j).getPosition(), isSmoothShading ? face.getVertex(j).getNormal() : face.getNormal()));
+      }
+      for (int j = 0; j < 3; j++) {
+        vertices.push_back(VertexPN(face.getVertex((j + 2) % face.getNumVertices()).getPosition(), isSmoothShading ? face.getVertex((j + 2) % face.getNumVertices()).getNormal() : face.getNormal()));
+      }
+    }
+    upload(&vertices[0], vertices.size());
+  }
 };
 
 
@@ -455,6 +472,7 @@ public:
     vbo->upload(vertices, numVertices, true);
     ibo->upload(indices, numIndices, true);
   }
+
 
 private:
   GLenum size2IboFmt(int size) {

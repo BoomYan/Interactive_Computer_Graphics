@@ -384,6 +384,20 @@ public:
   void load(const char filename[]) {
     load__(filename);
   }
+
+  void updateNormals() {
+    for (int i = 0; i < getNumVertices(); i++) {
+      Vertex vertex = getVertex(i);
+      VertexIterator iterator(vertex.getIterator());
+      VertexIterator it(iterator);
+      Cvec3 normals = Cvec3();
+      do {
+        normals += iterator.getFace().getNormal();
+      }
+      while (++iterator != it);
+      vertex.setNormal(normals.normalize());
+    }
+  }
 };
 
 
