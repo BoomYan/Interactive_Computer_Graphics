@@ -99,7 +99,12 @@ static bool g_picking                                          = false;
 static const int PICKING_SHADER                                = 2;
 
 static Mesh g_mesh;
-static bool g_smoothShading = true;
+static bool g_smoothShading                                    = true;
+static int g_bubblingMs                                        = 0;
+static bool g_bubbling                                         = false;
+static Mesh g_meshOriginal;
+static int g_subDivisions = 0;
+static int g_msBetweenBubbleFrames = 2000;
 // static const int g_numShaders                               = 3;
 // static const char * const g_shaderFiles[g_numShaders][2]    = {
 //   {"./shaders/basic-gl3.vshader", "./shaders/diffuse-gl3.fshader"},
@@ -274,10 +279,11 @@ static void initSphere() {
 
 static void initMesh() {
 	g_mesh.load("cube.mesh");
-
+  	g_meshOriginal.load("cube.mesh");
 	g_meshGeometry.reset(new SimpleGeometryPN);
 	g_meshGeometry->upload(g_mesh, g_smoothShading);
 }
+
 
 
 // takes a projection matrix and send to the the shaders
@@ -718,6 +724,20 @@ bool interpolateAndDisplay(float t) {
 
 	return false;
 }
+
+static void interpolateMesh(float t) {
+	g_mesh                                                        = g_meshOriginal;
+	for (int i                                                    = 0; i < g_mesh.getNumVertices(); i++) {
+		g_mesh.getVertex(i).setPosition(g_mesh.getVertex(i).getPosition() + g_mesh.getVertex(i).getPosition() * sin(t + i) * 0.5);
+	}
+
+	// for (int i                                                    = 0; i < g_subDivisions; i++) {
+	// 	subdivideMeshCatmullClark(g_mesh);
+	// }
+	g_meshGeometry->upload(g_mesh, g_smoothShading);
+	glutPostRedisplay();
+}
+
 // Interpret "ms" as milliseconds into the animation
 static void animateTimerCallback(int ms) {
 	float t                                                       = (float)ms/(float)g_msBetweenKeyFrames;
@@ -728,6 +748,16 @@ static void animateTimerCallback(int ms) {
 	ms + 1000/g_animateFramesPerSecond);
 	else
 		cout<<"Reached the end of the animation."<<endl;
+
+}
+
+static void bubblingCallback(int ms) {
+	float t                                                       = (float)ms/(float)g_msBetweenBubbleFrames;
+	if (g_bubbling) {
+		g_bubblingMs                                                 = ms;
+		interpolateMesh(t);
+		glutTimerFunc(1000/g_animateFramesPerSecond, bubblingCallback, ms + 1000/g_animateFramesPerSecond);
+	}
 
 }
 
@@ -924,9 +954,17 @@ static void keyboard(const unsigned char key, const int x, const int y) {
 		break;
 		case 'i':
 		inputFramesFromFile();
-
 		break;
-
+		case 'b':
+		g_bubbling                                                   = !g_bubbling;
+		if (g_bubbling) {
+			cout << "Mesh animation playing" << endl;
+			bubblingCallback(g_bubblingMs);
+		}
+		else {
+			cout << "Mesh animation paused" << endl;
+		}
+		break;
 	}
 	glutPostRedisplay();
 }
