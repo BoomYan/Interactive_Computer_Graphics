@@ -438,8 +438,8 @@ public:
       for (int j = 0; j < 3; j++) {
         vertices.push_back(VertexPN(face.getVertex(j).getPosition(), isSmoothShading ? face.getVertex(j).getNormal() : face.getNormal()));
       }
-      for (int j = 0; j < 3; j++) {
-        vertices.push_back(VertexPN(face.getVertex((j + 2) % face.getNumVertices()).getPosition(), isSmoothShading ? face.getVertex((j + 2) % face.getNumVertices()).getNormal() : face.getNormal()));
+      for (int j = 2; j < 5; j++) {
+        vertices.push_back(VertexPN(face.getVertex((j) % face.getNumVertices()).getPosition(), isSmoothShading ? face.getVertex((j) % face.getNumVertices()).getNormal() : face.getNormal()));
       }
     }
     upload(&vertices[0], vertices.size());

@@ -103,8 +103,8 @@ static bool g_smoothShading                                    = true;
 static int g_bubblingMs                                        = 0;
 static bool g_bubbling                                         = false;
 static Mesh g_meshOriginal;
-static int g_subDivisions = 0;
-static int g_msBetweenBubbleFrames = 2000;
+static int g_subDivisions                                      = 0;
+static int g_msBetweenBubblingFrames                           = 1000;
 // static const int g_numShaders                               = 3;
 // static const char * const g_shaderFiles[g_numShaders][2]    = {
 //   {"./shaders/basic-gl3.vshader", "./shaders/diffuse-gl3.fshader"},
@@ -279,11 +279,47 @@ static void initSphere() {
 
 static void initMesh() {
 	g_mesh.load("cube.mesh");
-  	g_meshOriginal.load("cube.mesh");
+	g_meshOriginal.load("cube.mesh");
 	g_meshGeometry.reset(new SimpleGeometryPN);
 	g_meshGeometry->upload(g_mesh, g_smoothShading);
 }
 
+
+static void subdivideMeshCatmullClark(Mesh& mesh) {
+	for (int i                                                    = 0; i < mesh.getNumFaces(); i++) {
+		Mesh::Face face                                              = mesh.getFace(i);
+		mesh.setNewFaceVertex(face, Cvec3());
+		for (int j                                                   = 0; j < face.getNumVertices(); j++) {
+			mesh.setNewFaceVertex(face, mesh.getNewFaceVertex(face) + face.getVertex(j).getPosition());
+		}
+		mesh.setNewFaceVertex(face, mesh.getNewFaceVertex(face)/face.getNumVertices());
+	}
+	for (int i                                                    = 0; i < mesh.getNumEdges(); i++) {
+		Mesh::Edge edge                                              = mesh.getEdge(i);
+		mesh.setNewEdgeVertex(edge, Cvec3());
+		for (int j                                                   = 0; j < 2; j++) {
+			mesh.setNewEdgeVertex(edge, mesh.getNewEdgeVertex(edge) + edge.getVertex(j).getPosition() + mesh.getNewFaceVertex(edge.getFace(j)));
+		}
+		mesh.setNewEdgeVertex(edge, mesh.getNewEdgeVertex(edge)/4);
+	}
+	for (int i                                                    = 0; i < mesh.getNumVertices(); i++) {
+		Mesh::Vertex vertex                                          = mesh.getVertex(i);
+		Mesh::VertexIterator iterator(vertex.getIterator());
+		Mesh::VertexIterator it(iterator);
+		float vtNum                                                 = 0;
+		Cvec3 vtSum                                                  = Cvec3();
+		Cvec3 fcSum                                                  = Cvec3();
+		do {
+
+			vtSum += iterator.getVertex().getPosition();
+			fcSum += mesh.getNewFaceVertex(iterator.getFace());
+			vtNum++;
+		}
+		while (++iterator != it);
+		mesh.setNewVertexVertex(vertex, vertex.getPosition() * (vtNum-2)/vtNum + vtSum/(vtNum*vtNum)+fcSum/(vtNum*vtNum));
+	}
+	mesh.subdivide();
+}
 
 
 // takes a projection matrix and send to the the shaders
@@ -728,17 +764,16 @@ bool interpolateAndDisplay(float t) {
 static void interpolateMesh(float t) {
 	g_mesh                                                        = g_meshOriginal;
 	for (int i                                                    = 0; i < g_mesh.getNumVertices(); i++) {
-		g_mesh.getVertex(i).setPosition(g_mesh.getVertex(i).getPosition() + g_mesh.getVertex(i).getPosition() * sin(t + i) * 0.5);
+		g_mesh.getVertex(i).setPosition(g_mesh.getVertex(i).getPosition() * (sin(t + i)*0.5+1));
 	}
 
-	// for (int i                                                    = 0; i < g_subDivisions; i++) {
-	// 	subdivideMeshCatmullClark(g_mesh);
-	// }
+	for (int i                                                    = 0; i < g_subDivisions; i++) {
+		subdivideMeshCatmullClark(g_mesh);
+	}
 	g_meshGeometry->upload(g_mesh, g_smoothShading);
 	glutPostRedisplay();
 }
 
-// Interpret "ms" as milliseconds into the animation
 static void animateTimerCallback(int ms) {
 	float t                                                       = (float)ms/(float)g_msBetweenKeyFrames;
 	bool endReached                                               = interpolateAndDisplay(t);
@@ -752,7 +787,7 @@ static void animateTimerCallback(int ms) {
 }
 
 static void bubblingCallback(int ms) {
-	float t                                                       = (float)ms/(float)g_msBetweenBubbleFrames;
+	float t                                                       = (float)ms/(float)g_msBetweenBubblingFrames;
 	if (g_bubbling) {
 		g_bubblingMs                                                 = ms;
 		interpolateMesh(t);
@@ -811,7 +846,7 @@ static void goToPreviousKeyFrame(){
 	} 
 
 }
-
+//
 static void goToNextKeyFrame(){
 	if(++g_currentKeyFrame == g_keyframes.end())
 	{
@@ -880,9 +915,46 @@ static void inputFramesFromFile(){
 		cout << "No file found, please check the file again" <<endl;
 	}
 
-	cout << "..." << endl;
+	cout << "Input not implemented" << endl;
 }
 
+static void setBubbling(){
+	g_bubbling                                                    = !g_bubbling;
+	if (g_bubbling) {
+		cout << "Bubbling animation started" << endl;
+		bubblingCallback(g_bubblingMs);
+	}
+	else {
+		cout << "Bubbling animation paused" << endl;
+	}
+}
+
+static void setSmoothShading(){
+	g_smoothShading                                               = !g_smoothShading;
+	g_meshGeometry->upload(g_mesh, g_smoothShading);
+	if (g_smoothShading) {
+		cout << "Smooth shading is enalbled" << endl;
+	}
+	else {
+		cout << "Smooth shading is disabled" << endl;
+	}
+}
+
+static void setSubDivisions(bool i){
+	if(i)
+		g_subDivisions--;
+	else
+		g_subDivisions++;
+	if (g_subDivisions<0) g_subDivisions                          = 0;
+	if (g_subDivisions>7) g_subDivisions                          = 7;
+	cout << "Subdivisions is set to " << g_subDivisions <<"."<<endl;
+	g_mesh                                                        = g_meshOriginal;
+	for (int i                                                    = 0; i < g_subDivisions; i++) {
+		subdivideMeshCatmullClark(g_mesh);
+	}
+	g_meshGeometry->upload(g_mesh, g_smoothShading);
+
+}
 static void keyboard(const unsigned char key, const int x, const int y) {
 
 	switch (key) {
@@ -956,15 +1028,26 @@ static void keyboard(const unsigned char key, const int x, const int y) {
 		inputFramesFromFile();
 		break;
 		case 'b':
-		g_bubbling                                                   = !g_bubbling;
-		if (g_bubbling) {
-			cout << "Mesh animation playing" << endl;
-			bubblingCallback(g_bubblingMs);
-		}
-		else {
-			cout << "Mesh animation paused" << endl;
-		}
+		setBubbling();
 		break;
+		case 'f':
+		setSmoothShading();
+		break;
+		case '0':
+		setSubDivisions(false);
+		break;
+		case '9':
+		setSubDivisions(true);
+		break;
+		case '8':
+		g_msBetweenBubblingFrames                                    = g_msBetweenBubblingFrames/2;
+		cout << "msBetweenBubblingFrames is halved to" << g_msBetweenBubblingFrames <<"."<<endl;
+		break;
+		case '7':
+		g_msBetweenBubblingFrames                                    = g_msBetweenBubblingFrames*2;
+		cout << "msBetweenBubblingFrames is doubled to" << g_msBetweenBubblingFrames <<"."<<endl;
+		break;
+	
 	}
 	glutPostRedisplay();
 }
