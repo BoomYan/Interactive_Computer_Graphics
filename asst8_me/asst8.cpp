@@ -105,17 +105,22 @@ static bool g_bubbling                                         = false;
 static Mesh g_meshOriginal;
 static int g_subDivisions                                      = 0;
 static int g_msBetweenBubblingFrames                           = 1000;
-// static const int g_numShaders                               = 3;
-// static const char * const g_shaderFiles[g_numShaders][2]    = {
-//   {"./shaders/basic-gl3.vshader", "./shaders/diffuse-gl3.fshader"},
-//   {"./shaders/basic-gl3.vshader", "./shaders/solid-gl3.fshader"},
-//   {"./shaders/basic-gl3.vshader", "./shaders/pick-gl3.fshader"}
-// };
-// static const char * const g_shaderFilesGl2[g_numShaders][2] = {
-//   {"./shaders/basic-gl2.vshader", "./shaders/diffuse-gl2.fshader"},
-//   {"./shaders/basic-gl2.vshader", "./shaders/solid-gl2.fshader"},
-//   {"./shaders/basic-gl2.vshader", "./shaders/pick-gl2.fshader"}
-// };
+
+// Global variables for used physical simulation
+static const Cvec3 g_gravity(0, -0.5, 0);  // gavity vector
+static double g_timeStep = 0.02;
+static double g_numStepsPerFrame = 10;
+static double g_damping = 0.96;
+static double g_stiffness = 4;
+static int g_simulationsPerSecond = 60;
+
+static std::vector<Cvec3> g_tipPos,        // should be hair tip pos in world-space coordinates
+                          g_tipVelocity;   // should be hair tip velocity in world-space coordinates
+
+
+
+
+
 static shared_ptr<Material> g_redDiffuseMat,
 g_blueDiffuseMat,
 g_bumpFloorMat,
@@ -124,8 +129,23 @@ g_pickingMat,
 g_lightMat,
 g_meshMat,
 ;
+
+
 static shared_ptr<Material> g_bunnyMat; // for the bunny
 static vector<shared_ptr<Material> > g_bunnyShellMats; // for bunny shells
+
+// New Geometry
+static const int g_numShells = 24; // constants defining how many layers of shells
+static double g_furHeight = 0.21;
+static double g_hairyness = 0.7;
+
+static shared_ptr<SimpleGeometryPN> g_bunnyGeometry;
+static vector<shared_ptr<SimpleGeometryPNX> > g_bunnyShellGeometries;
+static Mesh g_bunnyMesh;
+
+// New Scene node
+static shared_ptr<SgRbtNode> g_bunnyNode;
+
 
 
 shared_ptr<Material> g_overridingMaterial;
@@ -807,8 +827,7 @@ static void insertKeyFrame(){
 		keyframe.push_back((*i)->getRbt());
 	}
 
-	g_currentKeyFrame++;
-	g_keyframes.insert(g_currentKeyFrame, keyframe);
+	g_currentKeyFrame=g_keyframes.insert(g_currentKeyFrame, keyframe);
 	g_currentKeyFrame--;
 
 	cout << "Inserted new keyframe." << endl;
@@ -959,6 +978,50 @@ static void setSubDivisions(bool i){
 	g_meshGeometry->upload(g_mesh, g_smoothShading);
 
 }
+
+static void specialKeyboard(const int key, const int x, const int y) {
+  switch (key) {
+  case GLUT_KEY_RIGHT:
+    g_furHeight *= 1.05;
+    cerr << "fur height = " << g_furHeight << std::endl;
+    break;
+  case GLUT_KEY_LEFT:
+    g_furHeight /= 1.05;
+    std::cerr << "fur height = " << g_furHeight << std::endl;
+    break;
+  case GLUT_KEY_UP:
+    g_hairyness *= 1.05;
+    cerr << "hairyness = " << g_hairyness << std::endl;
+    break;
+  case GLUT_KEY_DOWN:
+    g_hairyness /= 1.05;
+    cerr << "hairyness = " << g_hairyness << std::endl;
+    break;
+  }
+  glutPostRedisplay();
+}
+
+// Specifying shell geometries based on g_tipPos, g_furHeight, and g_numShells.
+// You need to call this function whenver the shell needs to be updated
+static void updateShellGeometry() {
+  // TASK 1 and 3 TODO: finish this function as part of Task 1 and Task 3
+}
+
+// New glut timer call back that perform dynamics simulation
+// every g_simulationsPerSecond times per second
+static void hairsSimulationCallback(int dontCare) {
+
+  // TASK 2 TODO: wrte dynamics simulation code here as part of TASK2
+
+  ...
+
+  // schedule this to get called again
+  glutTimerFunc(1000/g_simulationsPerSecond, hairsSimulationCallback, 0);
+  glutPostRedisplay(); // signal redisplaying
+}
+
+
+
 static void keyboard(const unsigned char key, const int x, const int y) {
 
 	switch (key) {
@@ -1068,6 +1131,7 @@ static void initGlutState(int argc, char * argv[]) {
 	glutMotionFunc(motion);                                 // mouse movement callback
 	glutMouseFunc(mouse);                                   // mouse click callback
 	glutKeyboardFunc(keyboard);
+  glutSpecialFunc(specialKeyboard);                       
 }
 
 static void initGLState() {
@@ -1093,6 +1157,58 @@ static void initGLState() {
 //       g_shaderStates[i].reset(new ShaderState(g_shaderFiles[i][0], g_shaderFiles[i][1]));
 //   }
 // }
+
+static void initBunnyMeshes() {
+  g_bunnyMesh.load("bunny.mesh");
+
+  // TODO: Init the per vertex normal of g_bunnyMesh, using codes from asst7  
+  // clear all vertex normals
+  for (int i = 0; i < g_bunnyMesh.getNumVertices(); ++i) {
+    g_bunnyMesh.getVertex(i).setNormal(Cvec3(0));
+  }
+
+  // sum up the face normals per vertex
+  for (int i = 0; i < g_bunnyMesh.getNumFaces(); ++i) {
+    Mesh::Face f = g_bunnyMesh.getFace(i);
+    for (int j = 0; j < f.getNumVertices(); ++j) {
+      f.getVertex(j).setNormal( f.getVertex(j).getNormal() + f.getNormal() );
+    }
+  }
+
+  // normalize
+  for (int i = 0; i < g_bunnyMesh.getNumVertices(); ++i) {
+    Cvec3 n = g_bunnyMesh.getVertex(i).getNormal();
+    // only normalize if not near 0 length
+    if (norm2(n) < CS175_EPS2) {
+      continue;
+    }
+    g_bunnyMesh.getVertex(i).setNormal(normalize(n));
+  
+  }
+  
+  // TODO: Initialize g_bunnyGeometry from g_bunnyMesh, similar to
+  // what you did for asst7 ...
+  g_bunnyGeometry.reset(new SimpleGeometryPN());
+  vector<VertexPN> vs;
+  for (int i = 0; i < g_bunnyMesh.getNumFaces(); ++i) {
+    Mesh::Face f = g_bunnyMesh.getFace(i);
+    // first triangle
+    for (int j = 0; j<3; ++j) {
+      // use index 0,1 and 2 for the first triangle
+      Cvec3 n = f.getVertex(j).getNormal();
+      Cvec3 v = f.getVertex(j).getPosition();
+      vs.push_back(VertexPN(v, n));
+    }
+  }
+
+  g_bunnyGeometry->upload(&vs[0], vs.size());
+
+  // Now allocate array of SimpleGeometryPNX to for shells, one per layer
+  g_bunnyShellGeometries.resize(g_numShells);
+  for (int i = 0; i < g_numShells; ++i) {
+    g_bunnyShellGeometries[i].reset(new SimpleGeometryPNX());
+  }
+}
 static void initMaterials() {
 	// Create some prototype materials
 	Material diffuse("./shaders/basic-gl3.vshader", "./shaders/diffuse-gl3.fshader");
@@ -1125,6 +1241,39 @@ static void initMaterials() {
 
 	g_meshMat.reset(new Material("./shaders/basic-gl3.vshader", "./shaders/specular-gl3.fshader"));
 	g_meshMat->getUniforms().put("uColor", Cvec3f(0, 1, 0));
+
+	 // bunny material
+  g_bunnyMat.reset(new Material("./shaders/basic-gl3.vshader", "./shaders/bunny-gl3.fshader"));
+  g_bunnyMat->getUniforms()
+  .put("uColorAmbient", Cvec3f(0.45f, 0.3f, 0.3f))
+  .put("uColorDiffuse", Cvec3f(0.2f, 0.2f, 0.2f));
+
+  // bunny shell materials;
+  shared_ptr<ImageTexture> shellTexture(new ImageTexture("shell.ppm", false)); // common shell texture
+
+  // needs to enable repeating of texture coordinates
+  shellTexture->bind();
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+  // eachy layer of the shell uses a different material, though the materials will share the
+  // same shader files and some common uniforms. hence we create a prototype here, and will
+  // copy from the prototype later
+  Material bunnyShellMatPrototype("./shaders/bunny-shell-gl3.vshader", "./shaders/bunny-shell-gl3.fshader");
+  bunnyShellMatPrototype.getUniforms().put("uTexShell", shellTexture);
+  bunnyShellMatPrototype.getRenderStates()
+  .blendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) // set blending mode
+  .enable(GL_BLEND) // enable blending
+  .disable(GL_CULL_FACE); // disable culling
+
+  // allocate array of materials
+  g_bunnyShellMats.resize(g_numShells);
+  for (int i = 0; i < g_numShells; ++i) {
+    g_bunnyShellMats[i].reset(new Material(bunnyShellMatPrototype)); // copy from the prototype
+    // but set a different exponent for blending transparency
+    g_bunnyShellMats[i]->getUniforms().put("uAlphaExponent", 2.f + 5.f * float(i + 1)/g_numShells);
+  }
 };
 
 
@@ -1133,6 +1282,8 @@ static void initGeometry() {
 	initGround();
 	initCubes();
 	initSphere();
+  	initBunnyMeshes();
+
 }
 
 static void constructRobot(shared_ptr<SgTransformNode> base, shared_ptr<Material> material){
@@ -1241,6 +1392,23 @@ static void initScene() {
 	constructRobot(g_robot1Node, g_redDiffuseMat); // a Red robot
 	constructRobot(g_robot2Node, g_blueDiffuseMat); // a Blue robot
 
+  // create a single transform node for both the bunny and the bunny shells
+  g_bunnyNode.reset(new SgRbtNode());
+
+  // add bunny as a shape nodes
+  g_bunnyNode->addChild(shared_ptr<MyShapeNode>(
+                          new MyShapeNode(g_bunnyGeometry, g_bunnyMat)));
+
+  // add each shell as shape node
+  for (int i = 0; i < g_numShells; ++i) {
+    g_bunnyNode->addChild(shared_ptr<MyShapeNode>(
+                            new MyShapeNode(g_bunnyShellGeometries[i], g_bunnyShellMats[i])));
+  }
+  // from this point, calling g_bunnyShellGeometries[i]->upload(...) will change the
+  // geometry of the ith layer of shell that gets drawn
+
+
+
 	g_world->addChild(g_skyNode);
 	g_world->addChild(g_groundNode);
 	g_world->addChild(g_robot1Node);
@@ -1248,10 +1416,23 @@ static void initScene() {
 	g_world->addChild(g_light1Node);
 	g_world->addChild(g_light2Node);
 	g_world->addChild(g_meshNode);
+  	g_world->addChild(g_bunnyNode);
 
 	dumpSgRbtNodes(g_world, g_rbts);
 }
 
+// New function that initialize the dynamics simulation
+static void initSimulation() {
+  g_tipPos.resize(g_bunnyMesh.getNumVertices(), Cvec3(0));
+  g_tipVelocity = g_tipPos;
+
+  // TASK 1 TODO: initialize g_tipPos to "at-rest" hair tips in world coordinates
+
+  ...
+
+  // Starts hair tip simulation
+  hairsSimulationCallback(0);
+}
 
 
 int main(int argc, char * argv[]) {
@@ -1273,6 +1454,8 @@ int main(int argc, char * argv[]) {
 		initMaterials();
 		initGeometry();
 		initScene();
+	  initSimulation();
+
 		glutMainLoop();
 
 		return 0;
