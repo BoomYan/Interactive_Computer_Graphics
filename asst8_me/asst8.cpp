@@ -91,9 +91,9 @@ static int g_activeShader                            = 0;
 // ========================================
 // TODO: you can add global variables here
 // ========================================
-static int g_currentViewIndex                        = 0;                 // 0 is sky view, 1 is cube1 view, 2 is cube2 view
+static int g_currentViewIndex                        = 0;       // 0 is sky view, 1 is cube1 view, 2 is cube2 view
 static int g_currentManipulatingObject               = 0;   // 0 is sky, 1 is cube 1, 2 is cube2 
-static int g_currentSkyView                          = 0;                // 0 is world-sky view, 1 is sky-sky view
+static int g_currentSkyView                          = 0;      // 0 is world-sky view, 1 is sky-sky view
 
 static bool g_picking                                = false;
 static const int PICKING_SHADER                      = 2;
@@ -137,8 +137,8 @@ static vector<shared_ptr<Material> > g_bunnyShellMats; // for bunny shells
 
 // New Geometry
 static const int g_numShells                         = 24; // constants defining how many layers of shells
-static double g_furHeight                            = 0.5;
-static double g_hairyness                            = 1.2;
+static double g_furHeight                            = 0.21;
+static double g_hairyness                            = 0.7;
 
 static shared_ptr<SimpleGeometryPN> g_bunnyGeometry;
 static vector<shared_ptr<SimpleGeometryPNX> > g_bunnyShellGeometries;
@@ -158,72 +158,6 @@ typedef SgGeometryShapeNode MyShapeNode;
 
 // Macro used to obtain relative offset of a field within a struct
 #define FIELD_OFFSET(StructType, field) &(((StructType *)0)->field)
-
-// // A vertex with floating point position and normal
-// struct VertexPN {
-//   Cvec3f p, n;
-
-//   VertexPN() {}
-//   VertexPN(float x, float y, float z,
-//            float nx, float ny, float nz)
-//     : p(x,y,z), n(nx, ny, nz)
-//   {}
-
-//   // Define copy constructor and assignment operator from GenericVertex so we can
-//   // use make* functions from geometrymaker.h
-//   VertexPN(const GenericVertex& v) {
-//     *this                                         = v;
-//   }
-
-//   VertexPN& operator                              = (const GenericVertex& v) {
-//     p                                             = v.pos;
-//     n                                             = v.normal;
-//     return *this;
-//   }
-// };
-
-// struct Geometry {
-//   GlBufferObject vbo, ibo;
-//   int vboLen, iboLen;
-
-//   Geometry(VertexPN *vtx, unsigned short *idx, int vboLen, int iboLen) {
-//     this->vboLen                                  = vboLen;
-//     this->iboLen                                  = iboLen;
-
-//     // Now create the VBO and IBO
-//     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-//     glBufferData(GL_ARRAY_BUFFER, sizeof(VertexPN) * vboLen, vtx, GL_STATIC_DRAW);
-
-//     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-//     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned short) * iboLen, idx, GL_STATIC_DRAW);
-//   }
-
-//   void draw(Uniforms& uniforms) {
-//     // Enable the attributes used by our shader
-
-//     safe_glEnableVertexAttribArray(uniforms.h_aPosition);
-//     safe_glEnableVertexAttribArray(uniforms.h_aNormal);
-
-//     // bind vbo
-//     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-//     safe_glVertexAttribPointer(uniforms.h_aPosition, 3, GL_FLOAT, GL_FALSE, sizeof(VertexPN), FIELD_OFFSET(VertexPN, p));
-
-//     safe_glVertexAttribPointer(uniforms.h_aNormal, 3, GL_FLOAT, GL_FALSE, sizeof(VertexPN), FIELD_OFFSET(VertexPN, n));
-
-//     // bind ibo
-//     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-
-//     // draw!
-//     glDrawElements(GL_TRIANGLES, iboLen, GL_UNSIGNED_SHORT, 0);
-
-//     // Disable the attributes used by our shader
-//     safe_glDisableVertexAttribArray(uniforms.h_aPosition);
-//     safe_glDisableVertexAttribArray(uniforms.h_aNormal);
-
-//   }
-// };
-
-//typedef SgGeometryShapeNode<Geometry> MyShapeNode;
 
 
 // Vertex buffer and index buffer associated with the ground and cube geometry
@@ -426,11 +360,14 @@ static void setAFrame(){
 
 // Specifying shell geometries based on g_tipPos, g_furHeight, and g_numShells.
 // You need to call this function whenver the shell needs to be updated
-///////////////////..........
+
 static void updateShellGeometry() {
 	// TASK 1 and 3 TODO: finish this function as part of Task 1 and Task 3
+      
+	RigTForm acc                                        = getPathAccumRbt(g_world, g_bunnyNode,0);
+	
+	Cvec3 trans                                         = getPathAccumRbt(g_world, g_bunnyNode).getTranslation();
 
-	RigTForm surface                                    = getPathAccumRbt(g_world, g_bunnyNode);
 	Cvec3 p                                             = g_bunnyMesh.getFace(0).getVertex(0).getPosition();
 	Cvec3 s                                             = g_tipPos[g_bunnyMesh.getFace(0).getVertex(0).getIndex()];
 	for(int i                                           = 0; i < g_numShells; i++) {
@@ -439,7 +376,7 @@ static void updateShellGeometry() {
 		for(int f                                          = 0; f < g_bunnyMesh.getNumFaces(); f++) {
 			Cvec3 pos, norm;
 			Cvec2 texture;
-			for(int v                                         = 0; v < g_bunnyMesh.getFace(i).getNumVertices(); v++) {
+			for(int v                                         = 0; v < g_bunnyMesh.getFace(f).getNumVertices(); v++) {
 
 				if (v==0) {
 					texture                                         = Cvec2(0,0);
@@ -450,23 +387,59 @@ static void updateShellGeometry() {
 				}
 
 				Cvec3 p                                          = g_bunnyMesh.getFace(f).getVertex(v).getPosition();
-				Cvec3 s                                          = g_tipPos[g_bunnyMesh.getFace(f).getVertex(v).getIndex()];
-				s                                                = Cvec3((surface) * Cvec4(s, 0));        
-        
-				Cvec3 n                                          = g_bunnyMesh.getFace(f).getVertex(v).getNormal() * (g_furHeight / g_numShells);
-				Cvec3 d                                          = (s * 2 - p * 2 - n * 2 * g_numShells) / (g_numShells * (g_numShells-1));    
-				pos                                              = p + (n*i) + (d * (i * (i-1))/2);
 
-				if(i==0) { pos =p;       }
-
-				vtx.push_back(VertexPNX(pos, n+d*i, texture));
+				Cvec3 norm                                       = g_bunnyMesh.getFace(f).getVertex(v).getNormal();
+				Cvec3 t                                          = g_tipPos[g_bunnyMesh.getFace(f).getVertex(v).getIndex()];    
+				Cvec3 s                                          = p + norm * g_furHeight;
+				s                                                = Cvec3(acc * Cvec4(s, 0));
+				s                                                = s+trans;
+				Cvec3 n                                          = norm * (g_furHeight / g_numShells);  
+				Cvec3 d                                          = (t - s) / ((g_numShells-1)*(g_numShells-1));
+				pos                                              = p + (n*i) + (d * (i-1)*(i-1));
+				vtx.push_back(VertexPNX(pos, n+d*(i-1), texture));
 			}
 		}
 		g_bunnyShellGeometries[i]->upload(&vtx[0],vtx.size());
 	}
 	g_shellNeedsUpdate                                  = false;
+}
+
+static void hairsSimulationCallback(int dontCare) {
+
+	// TASK 2 TODO: wrte dynamics simulation code here as part of TASK2
+
+
+	Cvec3 trans                                         = getPathAccumRbt(g_world, g_bunnyNode).getTranslation();
+	//  Quat rotate                                     = getPathAccumRbt(g_world, g_bunnyNode).getRotation(); 
+	RigTForm acc                                        = getPathAccumRbt(g_world, g_bunnyNode,0);
+	for (int i                                          = 0; i < g_numStepsPerFrame; i++) {
+		for (int j                                         = 0; j < g_bunnyMesh.getNumVertices(); j++) {
+
+			Cvec3 p                                           = Cvec3(acc * Cvec4(g_bunnyMesh.getVertex(j).getPosition(), 0));
+			p                                                 = trans+p;
+			// Cvec3 p                                        = trans + g_bunnyMesh.getVertex(j).getPosition();
+			// p                                              = Cvec3(rotate * (p,0));
+			Cvec3 t                                           = g_tipPos[j];
+			Cvec3 norm                                        = g_bunnyMesh.getVertex(j).getNormal();
+			Cvec3 s                                           = p + (norm * g_furHeight);
+			Cvec3 v                                           = g_tipVelocity[j];
+			Cvec3 springF                                     = (s - t) * g_stiffness;
+			Cvec3 f                                           = g_gravity + springF;
+			t                                                 = t + v * g_timeStep;
+			if (norm2(t - p) != 0) {
+				t                                                = p + ((t - p)*(g_furHeight))/sqrt(norm2(t - p));
+			}
+			v                                                 = (v + f * g_timeStep) * g_damping;
+			g_tipPos[j]                                       = t;
+			g_tipVelocity[j]                                  = v;
+		}
+	}
+	glutTimerFunc(1000/g_simulationsPerSecond, hairsSimulationCallback, 0);
+	g_shellNeedsUpdate                                  = true;
+	glutPostRedisplay();
 
 }
+
 
 
 static void drawStuff(bool picking) {
@@ -560,11 +533,11 @@ static void drawStuff(bool picking) {
 static void display() {
 
 	// glUseProgram(g_shaderStates[g_activeShader]->program);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);                   // clear framebuffer color&depth
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);         // clear framebuffer color&depth
 
 	drawStuff(false);
 
-	glutSwapBuffers();                                    // show the back buffer (where we rendered stuff)
+	glutSwapBuffers();           // show the back buffer (where we rendered stuff)
 
 	// if (!g_picking) {
 	//   glutSwapBuffers();
@@ -1052,44 +1025,13 @@ static void specialKeyboard(const int key, const int x, const int y) {
 
 // New glut timer call back that perform dynamics simulation
 // every g_simulationsPerSecond times per second
-static void hairsSimulationCallback(int dontCare) {
-
-	// TASK 2 TODO: wrte dynamics simulation code here as part of TASK2
-	RigTForm acc                                        = inv(getPathAccumRbt(g_world, g_bunnyNode));
-
-	for (int v                                          = 0; v<g_bunnyMesh.getNumVertices(); v++) {
-    
-		Cvec3 p                                            = Cvec3(acc * Cvec4(g_bunnyMesh.getVertex(v).getPosition(), 0));
-		Cvec3 n                                            = g_bunnyMesh.getVertex(v).getNormal();
-
-		Cvec3 s                                            = p + (n * g_furHeight);
-        
-		Cvec3 spring                                       = (s - g_tipPos[v]) * g_stiffness;
-		Cvec3 force                                        = spring + g_gravity;
-
-		g_tipPos[v]                                        = g_tipPos[v] + g_tipVelocity[v] * g_timeStep;
-
-		g_tipPos[v]                                        = p + (g_tipPos[v]-p) * g_furHeight;
-        
-		g_tipVelocity[v]                                   = (g_tipVelocity[v] + force * g_timeStep) * g_damping;
-	}
-    
-
-	//updateShellGeometry();
-	g_shellNeedsUpdate                                  = true;
-
-	// schedule this to get called again
-	glutTimerFunc(1000/g_simulationsPerSecond, hairsSimulationCallback, 0);
-	glutPostRedisplay(); // signal redisplaying
-}
-
 
 
 static void keyboard(const unsigned char key, const int x, const int y) {
 
 	switch (key) {
 		case 27:
-		exit(0);                                  // ESC
+		exit(0);         // ESC
 		case 'h':
 		cout << " ============== H E L P ==============\n\n"
 			<< "h\t\thelp menu\n"
@@ -1184,17 +1126,17 @@ static void keyboard(const unsigned char key, const int x, const int y) {
 
 
 static void initGlutState(int argc, char * argv[]) {
-	glutInit(&argc, argv);                                  // initialize Glut based on cmd-line args
+	glutInit(&argc, argv);         // initialize Glut based on cmd-line args
 	glutInitDisplayMode(GLUT_RGBA|GLUT_DOUBLE|GLUT_DEPTH);  //  RGBA pixel channels and double buffering
 	glutInitWindowSize(g_windowWidth, g_windowHeight);      // create a window
-	glutCreateWindow("Assignment 5");                       // title the window
+	glutCreateWindow("Assignment 5");             // title the window
 
-	glutDisplayFunc(display);                               // display rendering callback
-	glutReshapeFunc(reshape);                               // window reshape callback
-	glutMotionFunc(motion);                                 // mouse movement callback
-	glutMouseFunc(mouse);                                   // mouse click callback
+	glutDisplayFunc(display);      // display rendering callback
+	glutReshapeFunc(reshape);      // window reshape callback
+	glutMotionFunc(motion);        // mouse movement callback
+	glutMouseFunc(mouse);          // mouse click callback
 	glutKeyboardFunc(keyboard);
-	glutSpecialFunc(specialKeyboard);                       
+	glutSpecialFunc(specialKeyboard);             
 }
 
 static void initGLState() {
@@ -1467,6 +1409,7 @@ static void initScene() {
 	g_world->addChild(g_robot1Node);
 	g_world->addChild(g_robot2Node);
 	g_world->addChild(g_light1Node);
+	
 	g_world->addChild(g_light2Node);
 	g_world->addChild(g_meshNode);
 
