@@ -225,7 +225,7 @@ static const Cvec3 g_light1(2.0, 3.0, 14.0), g_light2(-2, -3.0, -5.0);  // defin
 
 static Cvec3f g_objectColors[2] = {Cvec3f(1, 0, 0), Cvec3f(0, 0, 1)};
 
-static const Cvec3f g_arcballColor = Cvec3f(0, 0.47, 1);
+static const Cvec3f g_arcballColor = Cvec3f(0, 1, 0);
 static double g_arcballScreenRadius = 1.0;
 static double g_arcballScale = 1.0;
 
@@ -768,12 +768,12 @@ static void initGeometry() {
 
 static void constructRobot(shared_ptr<SgTransformNode> base, const Cvec3& color) {
 
-  const double ARM_LEN = 0.7,
-               ARM_THICK = 0.25,
-               TORSO_LEN = 1.5,
-               TORSO_THICK = 0.25,
-               TORSO_WIDTH = 1,
-               HEAD_RADIUS = 0.35;
+const double ARM_LEN = 0.7,
+               ARM_THICK = 0.25,
+               TORSO_LEN = 1.5,
+               TORSO_THICK = 0.25,
+               TORSO_WIDTH = 1,
+               HEAD_RADIUS = 0.25;
   const int NUM_JOINTS = 10,
             NUM_SHAPES = 10;
 
@@ -802,20 +802,17 @@ static void constructRobot(shared_ptr<SgTransformNode> base, const Cvec3& color)
   };
 
   ShapeDesc shapeDesc[NUM_SHAPES] = {
-    {0, 0,         0, 0, TORSO_WIDTH, TORSO_LEN, TORSO_THICK, g_cube}, // torso
-
-    {1,  ARM_LEN/2, 0, 0, ARM_LEN, ARM_THICK, ARM_THICK, g_cube}, // upper right arm
-    {2,  ARM_LEN/2, 0, 0, ARM_LEN, ARM_THICK * 0.7, ARM_THICK, g_cube}, // lower right arm
-    {3, -ARM_LEN/2, 0, 0, ARM_LEN, ARM_THICK, ARM_THICK, g_cube}, // upper left arm
-    {4, -ARM_LEN/2, 0, 0, ARM_LEN, ARM_THICK * 0.7, ARM_THICK, g_cube}, // lower left arm
-
-    {5, 0,  HEAD_RADIUS, 0, HEAD_RADIUS, HEAD_RADIUS, HEAD_RADIUS, g_sphere}, // noggin
-
-    {6, 0, -ARM_LEN/2, 0, ARM_THICK, ARM_LEN, ARM_THICK, g_cube}, // upper right leg
-    {7, 0, -ARM_LEN/2, 0, ARM_THICK * 0.7, ARM_LEN, ARM_THICK, g_cube}, // lower right leg
-    {8, 0, -ARM_LEN/2, 0, ARM_THICK, ARM_LEN, ARM_THICK, g_cube}, // upper left leg
-    {9, 0, -ARM_LEN/2, 0, ARM_THICK * 0.7, ARM_LEN, ARM_THICK, g_cube}, // lower left leg
-  };
+    {0, 0,            0, 0, TORSO_WIDTH, TORSO_LEN, TORSO_THICK, g_cube},   // torso
+    {1, ARM_LEN/2,    0, 0, ARM_LEN, ARM_THICK, ARM_THICK, g_cube},         // upper right arm
+    {2, ARM_LEN/2,    0, 0, ARM_LEN/2, ARM_THICK/2, ARM_THICK/2, g_sphere},   // lower right arm
+    {3, -ARM_LEN/2,   0, 0, ARM_LEN, ARM_THICK, ARM_THICK, g_cube},         // upper left arm
+    {4, -ARM_LEN/2,   0, 0, ARM_LEN/2, ARM_THICK/2, ARM_THICK/2, g_sphere},   // lower left arm
+    {5, 0, HEAD_RADIUS,  0, HEAD_RADIUS, HEAD_RADIUS, HEAD_RADIUS, g_sphere}, //head
+    {6, 0, -ARM_LEN/2,   0, ARM_THICK*1.1, ARM_LEN, ARM_THICK*1.1, g_cube},       // upper right leg
+    {7, 0, -ARM_LEN/2,   0, ARM_THICK/2, ARM_LEN/2, ARM_THICK/2, g_sphere},   // lower right leg
+    {8, 0, -ARM_LEN/2,   0, ARM_THICK*1.1, ARM_LEN, ARM_THICK*1.1, g_cube},         // upper left leg
+    {9, 0, -ARM_LEN/2,   0, ARM_THICK/2, ARM_LEN/2, ARM_THICK/2, g_sphere}    // lower left leg
+  };
 
   shared_ptr<SgTransformNode> jointNodes[NUM_JOINTS];
 

@@ -349,7 +349,7 @@ static void motion(const int x, const int y) {
    if (g_currentView != 0 && g_currentManipulatingObject == 0) return;
 
   const double dx = x - g_mouseClickX;
-  const double dy = g_windowHeight - y - 1 - g_mouseClickY;
+  const double dy = g_windowHeight - y - 1 - g_mouseClickY;///?????????????
   
   //set auxFrame for transformation
   //cout<<"setauxFrame invoked and currentview is "<<g_currentView<<"and current currentManipulatingObject is "<<g_currentManipulatingObject<<endl;
