@@ -1,6 +1,7 @@
 uniform mat4 uProjMatrix;
 uniform mat4 uModelViewMatrix;
 uniform mat4 uNormalMatrix;
+uniform mat4 uFunnyMatrix;
 
 attribute vec3 aPosition;
 attribute vec3 aNormal;
@@ -14,5 +15,5 @@ void main() {
   // send position (eye coordinates) to fragment shader
   vec4 tPosition = uModelViewMatrix * vec4(aPosition, 1.0);
   vPosition = vec3(tPosition);
-  gl_Position = uProjMatrix * tPosition;
+  gl_Position =  uProjMatrix *uFunnyMatrix * tPosition;
 }

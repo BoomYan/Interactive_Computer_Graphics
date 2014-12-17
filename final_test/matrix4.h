@@ -47,6 +47,8 @@ public:
     }
   }
 
+
+
   template <class T>
   Matrix4& readFromColumnMajorMatrix(const T m[]) {
     for (int i = 0; i < 16; ++i) {
@@ -172,6 +174,15 @@ public:
     for (int i = 0; i < 3; ++i) {
       r(i,i) = s[i];
     }
+    return r;
+  }
+
+  static Matrix4 makeFunnyMatrix(int a) {
+    Matrix4 r;
+    for (int i = 0; i < 3; ++i) {
+      r(i,i) = a;
+    }
+    r(3,3) = 1;
     return r;
   }
 

@@ -79,6 +79,9 @@ static int g_currentManipulatingObject = 0;   // 0 is sky, 1 is cube 1, 2 is cub
 static int g_currentSkyView=0;                // 0 is world-sky view, 1 is sky-sky view
 
 
+//funny variable funny matrix
+static int g_funnyVariable=1;
+
 
 struct ShaderState {
   GlProgram program;
@@ -89,6 +92,9 @@ struct ShaderState {
   GLint h_uModelViewMatrix;
   GLint h_uNormalMatrix;
   GLint h_uColor;
+
+  // Handles to funny uniform variables
+  GLint h_uFunnyMatrix;
 
   // Handles to vertex attributes
   GLint h_aPosition;
@@ -107,6 +113,8 @@ struct ShaderState {
     h_uNormalMatrix = safe_glGetUniformLocation(h, "uNormalMatrix");
     h_uColor = safe_glGetUniformLocation(h, "uColor");
 
+    // Retrieve handles to funny uniform variables
+    h_uFunnyMatrix = safe_glGetUniformLocation(h, "uFunnyMatrix");
     // Retrieve handles to vertex attributes
     h_aPosition = safe_glGetAttribLocation(h, "aPosition");
     h_aNormal = safe_glGetAttribLocation(h, "aNormal");
@@ -302,6 +310,12 @@ static void sendModelViewNormalMatrix(const ShaderState& curSS, const Matrix4& M
   safe_glUniformMatrix4fv(curSS.h_uNormalMatrix, glmatrix);
 }
 
+static void sendFunnyMatrix(const ShaderState& curSS, const Matrix4& funnyMatrix){
+  GLfloat glmatrix[16];
+  funnyMatrix.writeToColumnMajorMatrix(glmatrix);
+  safe_glUniformMatrix4fv(curSS.h_uFunnyMatrix, glmatrix);
+}
+
 // update g_frustFovY from g_frustMinFov, g_windowWidth, and g_windowHeight
 static void updateFrustFovY() {
   if (g_windowWidth >= g_windowHeight)
@@ -348,6 +362,11 @@ static void drawStuff() {
   const Matrix4 projmat = makeProjectionMatrix();
   sendProjectionMatrix(curSS, projmat);
 
+  // build & send funny matrix to vshader
+  const Matrix4 funnyMatrix = Matrix4::makeFunnyMatrix(g_funnyVariable);
+  sendFunnyMatrix(curSS, funnyMatrix);
+
+
   const RigTForm eyeRbt = (g_currentView == 0) ? g_skyRbt : g_objectRbt[g_currentView - 1];
   
   const RigTForm invEyeRbt = inv(eyeRbt);
@@ -356,7 +375,6 @@ static void drawStuff() {
   const Cvec3 eyeLight2 = Cvec3(invEyeRbt * Cvec4(g_light2, 1)); // g_light2 position in eye coordinates
   safe_glUniform3f(curSS.h_uLight, eyeLight1[0], eyeLight1[1], eyeLight1[2]);
   safe_glUniform3f(curSS.h_uLight2, eyeLight2[0], eyeLight2[1], eyeLight2[2]);
-
 
   // draw ground
   // ===========
@@ -644,8 +662,14 @@ static void keyboard(const unsigned char key, const int x, const int y) {
   break;
   case 'r':
     reset();
+  case '1':
+    g_funnyVariable++;
+    cout<<"current g_funnyVariable is"<<g_funnyVariable<<endl;
   break;
-
+  case '2':
+    g_funnyVariable--;
+    cout<<"current g_funnyVariable is"<<g_funnyVariable<<endl;
+  break;
 
   // ============================================================
   // TODO: add the following functionality for 
